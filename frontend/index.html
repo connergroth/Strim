@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #FC4C02;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: #FC4C02;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #FC4C02;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: gray;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/strava-trimmer-logo.png" alt="Strava Trimmer Logo" width="100">
+        <h2>Upload Your FIT File</h2>
+        <input type="file" id="fileInput" accept=".fit">
+        <p id="fileName"></p>
+        <button id="uploadButton">Upload</button>
+        <p id="message"></p>
+    </div>
+
+    <script src="upload.js" defer></script>
+</body>
+</html>

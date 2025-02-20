@@ -5,6 +5,3 @@ package.json
 package-lock.json
 node_modules
  
-.frontend/  
-.vscode
-.strava-trim/
