@@ -30,10 +30,16 @@ def detect_stop(df):
     
     return df["timestamp"].max()
 
-def trim(df, end_timestamp):
-    return df[df["timestamp"] < end_timestamp]
+def trim(df, end_timestamp, corrected_distance=None):
+    trimmed_df = df[df["timestamp"] < end_timestamp].copy()
+    
+    if corrected_distance:
+        distance_ratio = corrected_distance / trimmed_df["distance"].max()
+        trimmed_df["distance"] = trimmed_df["distance"] * distance_ratio
 
-def convert_to_tcx(df, output_file):
+    return trimmed_df
+
+def convert_to_tcx(df, output_file, corrected_pace=None):
     tcx = ET.Element("TrainingCenterDatabase", {
         "xmlns": "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
     })
@@ -47,6 +53,10 @@ def convert_to_tcx(df, output_file):
     lap = ET.SubElement(activity, "Lap", StartTime=start_time)
     ET.SubElement(lap, "TotalTimeSeconds").text = str((df["timestamp"].max() - df["timestamp"].min()).total_seconds())
     ET.SubElement(lap, "DistanceMeters").text = str(df["distance"].max())
+
+    if corrected_pace:
+        pace_mps = (1 / corrected_pace) * 26.8224  # Convert min/mile to m/s
+        ET.SubElement(lap, "AvgSpeed").text = str(pace_mps)
 
     track = ET.SubElement(lap, "Track")
 
@@ -65,6 +75,7 @@ def convert_to_tcx(df, output_file):
     tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
     return output_file
+
 
 def process_file(file_path):
     df = load_fit(file_path)

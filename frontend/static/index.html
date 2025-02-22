@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <title>Strim</title>
+    <style>
+        body {
+            font-family: Inter, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            color: #FC4C02;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .container {
+            background: #FC4C02;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            color: white;
+            max-width: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: white;
+            color: #FC4C02;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        .strava-login-button {
+            width: 250px; /* Adjust size to fit your design */
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .strava-login-button:hover {
+            opacity: 0.8;
+        }
+
+        .logo {
+            width: 150px; /* Adjust as needed */
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #FF6A33;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .steps {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 25px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 450px;
+            text-align: left;
+        }
+
+        .footer {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+            margin: 40px auto;
+            padding: 12px 20px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            font-size: 14px;
+            width: fit-content;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .footer a {
+            color: #FC4C02;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .strava-logo {
+            height: 30px;
+            vertical-align: middle;
+            opacity: 0.8;
+        }
+
+        .strava-logo:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Section -->
+    <div id="authSection">
+        <img src="/src/strim-logo.jpg" alt="Strim Logo" class="logo">
+        <br>
+        <a href="http://localhost:5000/auth">
+            <img src="/src/btn_strava_connectwith_orange@2x.png" 
+                 alt="Connect with Strava" 
+                 class="strava-login-button">
+        </a>
+    </div>
+
+    <!-- Activity Selection Section (Hidden Until Logged In) -->
+    <div class="container" id="activitySection" style="display: none;">
+        <h2>Select an Activity</h2>
+        <label for="activitySelect">Your Activities:</label>
+        <select id="activitySelect"></select>
+        <button onclick="downloadAndProcessActivity()">Trim & Fix Activity</button>
+        <p id="message"></p>
+    </div>
+
+    <div class="steps">
+        <div class="step"><span class="step-number">1.</span> Login to Strava to provide access to your activity.</div>
+        <div class="step"><span class="step-number">2.</span> Select an activity to trim.</div>
+        <div class="step"><span class="step-number">3.</span> Strava Trimmer will remove excess stopped time.</div>
+        <div class="step"><span class="step-number">4.</span> The corrected activity will be uploaded back to Strava!</div>
+    </div>
+
+    <div class="footer">
+        <p>Created by <strong>Conner Groth</strong> |
+            <a href="https://github.com/connergroth" target="_blank">
+                <i class="fab fa-github" style="font-size: 20px;"></i>
+            </a>
+        </p>
+        <img src="/src/api_logo_pwrdBy_strava_horiz_gray.png" alt="Powered by Strava" class="strava-logo">
+    </div>
+
+    <script>
+        function checkAuthStatus() {
+            fetch("http://localhost:5000/auth/status")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        console.log("User is authenticated, fetching activities...");
+                        document.getElementById("authSection").style.display = "none";
+                        document.getElementById("activitySection").style.display = "block";
+                        fetchActivities();
+                    } else {
+                        console.log("User not authenticated");
+                    }
+                });
+        }
+
+
+        function fetchActivities() {
+            fetch("http://localhost:5000/get-activities")
+                .then(response => response.json())
+                .then(data => {
+                    let activitySelect = document.getElementById("activitySelect");
+                    activitySelect.innerHTML = ""; // Clear existing options
+
+                    data.activities.forEach(activity => {
+                        let option = document.createElement("option");
+                        option.value = activity.id;
+                        option.textContent = `${activity.name} (${activity.distance_miles} miles)`;
+                        activitySelect.appendChild(option);
+                    });
+                });
+        }
+
+        function downloadAndProcessActivity() {
+            const activityId = document.getElementById("activitySelect").value;
+            if (!activityId) {
+                alert("Please select an activity.");
+                return;
+            }
+
+            fetch(`http://localhost:5000/download-fit?activity_id=${activityId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Activity processed successfully! New activity ID: " + data.new_activity_id);
+                    } else {
+                        alert("Failed to process activity: " + data.error);
+                    }
+                });
+        }
+
+        // Run authentication check on page load
+        checkAuthStatus();
+    </script>
+</body>
+</html>
