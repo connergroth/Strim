@@ -1,6 +1,8 @@
-from flask import Flask, Response, request, redirect, jsonify, send_file, send_from_directory, session
+from flask import Flask, Response, request, redirect, jsonify, send_file, send_from_directory, session, render_template
 from flask_session import Session
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from flask_talisman import Talisman
 import requests
 import trimmer
 import logging
@@ -12,15 +14,27 @@ load_dotenv()
 # Start Session
 app = Flask(__name__)
 
+CORS(app, supports_credentials=True, origins=["http://localhost:5500"])  
+
+Talisman(app, content_security_policy={
+    'default-src': "'self'",
+    'script-src': "'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+    'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+}, content_security_policy_report_only=True, content_security_policy_report_uri="/csp-report")
+
+# Ensure Session is Stored on Disk
+SESSION_DIR = os.path.abspath("./flask_session")  
+if not os.path.exists(SESSION_DIR):
+    os.makedirs(SESSION_DIR)  # Create the session directory if it doesn’t exist
+
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "filesystem"  # Force session storage on disk
-app.config["SESSION_FILE_DIR"] = os.path.abspath("./flask_session")  # Ensure sessions are saved here
-app.config["SESSION_PERMANENT"] = False  # Sessions should expire
-app.config["SESSION_USE_SIGNER"] = True  # Protect session data
-app.config["SESSION_COOKIE_NAME"] = "strim_session"  # Custom session name
-app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevent JavaScript access
-app.config["SESSION_COOKIE_SECURE"] = False  # Change to True in production with HTTPS
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Fix Chrome session issues
+app.config["SESSION_TYPE"] = "filesystem"  # Store sessions on disk
+app.config["SESSION_FILE_DIR"] = SESSION_DIR  # Save session files here
+app.config["SESSION_PERMANENT"] = True  # Ensure session persists
+app.config["SESSION_USE_SIGNER"] = True  # Prevents tampering
+app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevents JS access to session
+app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Ensures session persists across redirects
 
 Session(app)
 
@@ -41,7 +55,7 @@ def strava_auth():
         f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
         f"&response_type=code"
         f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
-        f"&scope=activity:write"
+        f"&scope=activity:read,activity:write"
     )
     return redirect(auth_url)
 
@@ -79,7 +93,7 @@ def strava_callback():
 
         app.logger.info(f"Session after login: {session}")  # Debugging session
 
-        return redirect("/")
+        return redirect("/activity-selection")
 
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Request Error: {str(e)}")
@@ -113,12 +127,16 @@ def get_activities():
         for act in activities if act["type"] == "Run"
     ]})
 
+@app.route("/activity-selection")
+def activity_selection():
+    return render_template("index.html")  
+
 @app.route("/update-distance", methods=["POST"])
 def update_distance():
     if "strava_token" not in session:
         return jsonify({"error": "Unauthorized"})
 
-    data = request.jsonify
+    data = request.json
     activity_id = data.get("activity_id")
     corrected
 
@@ -166,4 +184,4 @@ def download_fit():
 
 
 if __name__ == "__main__":
-    app.run(debug=False, port=5000)
+    app.run(debug=True, port=5000)
