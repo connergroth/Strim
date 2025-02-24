@@ -3,9 +3,9 @@
 # Strim
 Ever forgotten to end your Strava run? Does the treadmill record a different distance than Strava? 
 
-If you've ever recorded an indoor/treadmill on your watch, using the Strava app, you probably found that the recorded distance was way off. 
+If you've ever recorded an indoor/treadmill run using the Strava app, you probably found that the recorded distance was way off. 
 
-This is because the app uses the pedometer in your watch to calculate the distance, which is often inaccurate. 
+This is because the app uses the pedometer in your watch/phone to calculate the distance, which is often inaccurate. 
 
 Strim is a tool that allows you to trim your run to the point you stopped running automatically. It also allows you to enter the real distance you ran, correcting any inconsistencies and giving you accurate data.
 - Using the Strava API, Strim automatically fetches your recent activities and allows you to select and edit them. 
