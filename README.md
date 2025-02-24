@@ -31,5 +31,5 @@ Strim is built using the following technologies:
 - **Strava API** – Fetches user activities, deletes untrimmed activity and reuploads the trimmed one.
 
 ## 🚀 Deployment
-- **Frontend:** [Vercel Deployment](https://your-frontend-url.vercel.app)
+- **Frontend:** [Vercel Deployment](strimrun.vercel.app)
 - **Backend:** [Railway Deployment](https://strim-production.up.railway.app)
