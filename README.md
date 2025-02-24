@@ -30,5 +30,5 @@ Strim is built using the following technologies:
 - **Strava API** – Fetches user activities
 
 ## 🚀 Deployment
-- **Frontend:** Vercel [Vercel Deployment](https://your-frontend-url.vercel.app)
-- **Backend:** [Railway Deployment](Deployment in progress)
+- **Frontend:** [Vercel Deployment](https://your-frontend-url.vercel.app)
+- **Backend:** [Railway Deployment](https://strim-production.up.railway.app)
