@@ -34,8 +34,10 @@ def trim(df, end_timestamp, corrected_distance=None):
     trimmed_df = df[df["timestamp"] < end_timestamp].copy()
     
     if corrected_distance:
-        distance_ratio = corrected_distance / trimmed_df["distance"].max()
-        trimmed_df["distance"] = trimmed_df["distance"] * distance_ratio
+        max_distance = trimmed_df["distance"].max()
+        if max_distance > 0:  # Prevent division by zero
+            distance_ratio = corrected_distance / max_distance
+            trimmed_df["distance"] = trimmed_df["distance"] * distance_ratio
 
     return trimmed_df
 

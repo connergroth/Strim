@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <!-- <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"> -->
-    <title>Strim</title>
+    <title>Strim - Trim Your Strava Runs</title>
     <style>
         body {
             font-family: Inter, sans-serif;
@@ -45,29 +45,34 @@
         }
 
         button {
-            padding: 12px 20px;
+            padding: 14px 22px;
             background-color: white;
             color: #FC4C02;
             font-weight: bold;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 16px;
+            margin-top: 20px;
+            display: inline-block;
+            width: 100%;
+            max-width: 300px;
         }
 
         .strava-login-button {
-            width: 250px; /* Adjust size to fit your design */
+            width: 250px; 
             cursor: pointer;
             transition: opacity 0.3s;
         }
 
         .strava-login-button:hover {
             opacity: 0.8;
+            transform: scale(1.05);
         }
 
         .logo {
-            width: 150px; /* Adjust as needed */
+            width: 150px; 
             margin-bottom: 20px;
         }
 
@@ -131,22 +136,35 @@
 
         table {
             width: 100%;
-            margin-top: 10px;
             border-collapse: collapse;
-        }
-
-        table, th, td {
-            border: 1px solid #ddd;
+            background: white;
+            color: black;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
         }
 
         th, td {
-            padding: 10px;
+            padding: 12px;
             text-align: center;
         }
 
         th {
             background-color: #FC4C02;
             color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        td input[type="radio"] {
+            transform: scale(1.2);
         }
     </style>
 </head>
@@ -176,9 +194,24 @@
             </thead>
             <tbody id="activityList"></tbody>
         </table>
-        <button onclick="trimActivity()">Trim Selected Activity</button>
+    
+        <label>
+            <input type="checkbox" id="trimCheckbox" checked disabled> Trim Stopped Time (Required)
+        </label>
+    
+        <label>
+            <input type="checkbox" id="editDistanceCheckbox" onchange="toggleDistanceInput()"> Edit Distance?
+        </label>
+    
+        <div id="distanceInputContainer" style="display: none;">
+            <label for="newDistance">Enter New Distance (miles):</label>
+            <input type="number" id="newDistance" min="0.1" step="0.01" placeholder="Enter new distance">
+        </div>
+    
+        <button onclick="downloadAndProcessActivity()">Trim Activity</button>
         <p id="message"></p>
     </div>
+    
 
     <div class="steps">
         <div class="step"><span class="step-number">1.</span> Login to Strava to provide access to your activity.</div>
@@ -246,29 +279,50 @@
             }
         }
 
-        async function trimActivity() {
+        function toggleDistanceInput() {
+            const editDistanceChecked = document.getElementById("editDistanceCheckbox").checked;
+            document.getElementById("distanceInputContainer").style.display = editDistanceChecked ? "block" : "none";
+        }
+
+        async function downloadAndProcessActivity() {
             const selectedActivity = document.querySelector('input[name="selectedActivity"]:checked');
             if (!selectedActivity) {
                 alert("Please select an activity.");
                 return;
             }
+
             const activityId = selectedActivity.value;
+            localStorage.setItem("selectedActivityId", activityId);
+
+            const editDistance = document.getElementById("editDistanceCheckbox").checked;
+            let newDistance = editDistance ? document.getElementById("newDistance").value : null;
+
+            if (editDistance && (!newDistance || parseFloat(newDistance) <= 0)) {
+                alert("Please enter a valid new distance.");
+                return;
+            }
+
             try {
-                const response = await fetch(`/download-fit?activity_id=${encodeURIComponent(activityId)}`, {
-                    credentials: "include",
-                });
-                const data = await response.json();
-                if (data.success) {
-                    alert(`Activity trimmed successfully! New activity ID: ${data.new_activity_id}`);
+                document.getElementById("message").innerText = "Downloading and processing activity...";
+
+                // Ensure newDistance is properly encoded
+                const encodedDistance = newDistance ? encodeURIComponent(newDistance) : "";
+                const url = `/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
+
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById("message").innerText = "Upload complete! Redirecting to Strava...";
+                    window.location.href = `https://www.strava.com/activities/${result.new_activity_id}`;
                 } else {
-                    alert("Failed to process activity: " + data.error);
+                    alert("Error: " + result.error);
                 }
             } catch (error) {
                 console.error("Error processing activity:", error);
+                alert("An error occurred while processing the activity.");
             }
         }
-
-        document.addEventListener("DOMContentLoaded", checkAuthStatus);
     </script>
 </body>
 </html>

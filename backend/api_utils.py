@@ -36,23 +36,26 @@ def delete_activity(activity_id, access_token):
     else:
         print(f"Failed to delete activity {activity_id}")
     
+import logging
+
 def get_activity_details(activity_id):
+    access_token = get_access_token()
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     response = requests.get(url, headers=headers)
+    
     if response.status_code == 200:
         activity_data = response.json()
-
-        # Save activity metadata before deleting
         with open(f"activity_{activity_id}.json", "w") as f:
             json.dump(activity_data, f, indent=4)
 
-        print(f"Saved activity {activity_id} metadata.")
+        logging.info(f"Saved activity {activity_id} metadata.")
         return activity_data
     else:
-        print("Failed to retrieve activity details:", response.json())
+        logging.error(f"Failed to retrieve activity {activity_id}: {response.json()}")
         return None
+
 
 def create_activity(access_token, metadata):
     url = "https://www.strava.com/api/v3/activities"

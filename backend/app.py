@@ -6,13 +6,14 @@ from flask_talisman import Talisman
 import requests
 import trimmer
 import logging
+import api_utils
 
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 # Start Session
-app = Flask(__name__)
+app = Flask(__name__, template_folder="../frontend/templates")
 
 CORS(app, supports_credentials=True, origins=["http://localhost:5500"])  
 
@@ -44,6 +45,11 @@ logging.basicConfig(filename="strim.log", level=logging.INFO,
 
 app.logger.info("Strim app started")
 
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    
 @app.route("/")
 def home():
     return "You are logged in! Now select an activity to trim."
@@ -55,7 +61,7 @@ def strava_auth():
         f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
         f"&response_type=code"
         f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
-        f"&scope=activity:read,activity:write"
+        f"&scope=activity:read,read,activity:read_all,activity:write"
     )
     return redirect(auth_url)
 
@@ -134,54 +140,106 @@ def activity_selection():
 @app.route("/update-distance", methods=["POST"])
 def update_distance():
     if "strava_token" not in session:
-        return jsonify({"error": "Unauthorized"})
+        return jsonify({"error": "Unauthorized"}), 401
 
     data = request.json
     activity_id = data.get("activity_id")
-    corrected
+    new_distance = data.get("new_distance")
+
+    if not activity_id or not new_distance:
+        return jsonify({"error": "Missing required data"}), 400
+
+    access_token = api_utils.get_access_token()
+
+    # Fetch existing activity details
+    activity_metadata = api_utils.get_activity_details(activity_id)
+    if not activity_metadata:
+        return jsonify({"error": "Failed to fetch activity details"}), 500
+
+    # Update metadata with new distance
+    activity_metadata["distance"] = float(new_distance)
+
+    # Delete original activity
+    delete_success = api_utils.delete_activity(activity_id, access_token)
+    if not delete_success:
+        return jsonify({"error": "Failed to delete original activity"}), 500
+
+    # Recreate activity with updated distance
+    new_activity_id = api_utils.create_activity(access_token, activity_metadata)
+    if not new_activity_id:
+        return jsonify({"error": "Failed to create new activity"}), 500
+
+    return jsonify({"success": True, "new_activity_id": new_activity_id})
+
+import traceback  # Add this to capture full error trace
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
-    if "strava_token" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        if "strava_token" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
 
-    activity_id = request.args.get("activity_id")
-    if not activity_id:
-        return jsonify({"error": "Missing activity ID"}), 400
+        activity_id = request.args.get("activity_id")
+        edit_distance = request.args.get("edit_distance") == "true"
+        new_distance = request.args.get("new_distance")
 
-    access_token = session["strava_token"]
-    fit_url = f"https://www.strava.com/api/v3/activities/{activity_id}/export_original"
+        if not activity_id:
+            return jsonify({"error": "Missing activity ID"}), 400
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(fit_url, headers=headers)
+        if edit_distance and (not new_distance or float(new_distance) <= 0):
+            return jsonify({"error": "Invalid new distance provided"}), 400
 
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to download FIT file"}), 500
+        # Get Access Token
+        access_token = api_utils.get_access_token()
 
-    # Save the file
-    fit_path = f"uploads/{activity_id}.fit"
-    with open(fit_path, "wb") as fit_file:
-        fit_file.write(response.content)
+        # Get activity details before deletion
+        activity_metadata = api_utils.get_activity_details(activity_id)
+        if not activity_metadata:
+            return jsonify({"error": "Failed to retrieve activity details"}), 500
 
-    # Step 1: Trim the activity
-    df = trimmer.load_fit(fit_path)
-    end_timestamp = trimmer.detect_stop(df)
-    trimmed_df = trimmer.trim(df, end_timestamp)
+        # Download original FIT file from Strava
+        fit_url = f"https://www.strava.com/api/v3/activities/{activity_id}/export_original"
+        headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Step 2: Convert and Modify Distance
-    corrected_distance = trimmed_df["distance"].max()
-    corrected_tcx = trimmer.convert_to_tcx(trimmed_df, f"uploads/trimmed_{activity_id}.tcx", corrected_distance)
+        response = requests.get(fit_url, headers=headers, stream=True)
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to download FIT file"}), 500
 
-    # Step 3: Delete old activity and re-upload the trimmed one
-    utils.delete_activity(activity_id, access_token)
-    upload_id = utils.upload_tcx(access_token, corrected_tcx)
+        fit_path = os.path.join(UPLOAD_FOLDER, f"{activity_id}.fit")
+        with open(fit_path, "wb") as fit_file:
+            for chunk in response.iter_content(chunk_size=1024):
+                fit_file.write(chunk)
 
-    if upload_id:
-        new_activity_id = utils.check_upload_status(access_token, upload_id)
+        # Process FIT file (trim stops and optionally edit distance)
+        df = trimmer.load_fit(fit_path)
+        end_timestamp = trimmer.detect_stop(df)
+        trimmed_df = trimmer.trim(df, end_timestamp, float(new_distance) if edit_distance else None)
+
+        # Convert to TCX format
+        trimmed_tcx = trimmer.convert_to_tcx(trimmed_df, f"{UPLOAD_FOLDER}/trimmed_{activity_id}.tcx")
+
+        # Step 1: Delete old activity from Strava
+        delete_success = api_utils.delete_activity(activity_id, access_token)
+        if not delete_success:
+            return jsonify({"error": "Failed to delete original activity"}), 500
+
+        # Step 2: Upload new trimmed activity
+        upload_id = api_utils.upload_tcx(access_token, trimmed_tcx, activity_metadata["name"])
+        if not upload_id:
+            return jsonify({"error": "Failed to upload new activity"}), 500
+
+        # Step 3: Wait for Strava to process the uploaded activity
+        new_activity_id = api_utils.check_upload_status(access_token, upload_id)
+        if not new_activity_id:
+            return jsonify({"error": "Upload processing failed"}), 500
+
         return jsonify({"success": True, "new_activity_id": new_activity_id})
-    else:
-        return jsonify({"error": "Failed to upload trimmed activity"}), 500
 
+    except Exception as e:
+        app.logger.error(f"Error in /download-fit: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
+    
