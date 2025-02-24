@@ -20,10 +20,12 @@ def get_access_token():
     }
     response = requests.post(url, data=params)
     data = response.json()
-    return data["access_token"]
 
-access_token = get_access_token()
-print(f"New access token: {access_token}") 
+    if "access_token" not in data:
+        raise Exception(f"Error recieving access token: {data}")
+
+    print(f"New access token: {access_token}") 
+    return data["access_token"]
 
 def delete_activity(activity_id, access_token):
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"

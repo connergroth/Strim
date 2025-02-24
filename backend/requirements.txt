@@ -1,0 +1,11 @@
+flask 
+flask_cors
+flask_session
+flask_talisman
+fitparse
+pandas
+requests
+gunicorn
+werkzeug
+python-dotenv
+

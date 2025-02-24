@@ -61,7 +61,7 @@ def strava_auth():
         f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
         f"&response_type=code"
         f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
-        f"&scope=activity:read,read,activity:read_all,activity:write"
+        f"&scope=activity:read,activity:read_all,activity:write"
     )
     return redirect(auth_url)
 
@@ -240,6 +240,8 @@ def download_fit():
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 8080))  # Railway uses dynamic ports
+    app.run(debug=True, host="0.0.0.0", port=port)
+
 
     
