@@ -1,2 +1,3 @@
-# Strava-Trim
-A script to automatically trim indoor runs to the point at which they ended.
+# Strim
+Ever forgotten to end your Strava run and messed up your pace? Treadmill have a different distance than Strava? 
+
