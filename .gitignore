@@ -6,3 +6,10 @@ package-lock.json
 node_modules
  
 .vercel
+
+__pycache__/
+*.pyc
+*.pyo
+
+flask_session/
+uploads/

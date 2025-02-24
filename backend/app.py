@@ -5,7 +5,6 @@ from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
 import requests
 import trimmer
-import logging
 import api_utils
 
 import os
@@ -38,12 +37,6 @@ app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Ensures session persists across redirects
 
 Session(app)
-
-# Logging 
-logging.basicConfig(filename="strim.log", level=logging.INFO, 
-                    format="%(asctime)s - %(levelname)s - %(message)s")
-
-app.logger.info("Strim app started")
 
 UPLOAD_FOLDER = "uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
