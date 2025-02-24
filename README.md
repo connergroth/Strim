@@ -31,4 +31,4 @@ Strim is built using the following technologies:
 
 ## 🚀 Deployment
 - **Frontend:** Vercel (`strim-madtakvub-conner-groths-projects.vercel.app`)
-- **Backend:** Railway (`https://your-backend-url.railway.app`)
+- **Backend:** Railway (`Deployment in progress`)
