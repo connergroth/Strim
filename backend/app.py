@@ -14,7 +14,7 @@ load_dotenv()
 # Start Session
 app = Flask(__name__, template_folder="../frontend/templates")
 
-CORS(app, supports_credentials=True, origins=["http://localhost:5500"])  
+CORS(app, supports_credentials=True, origins=["https://strim-production.up.railway.app"])  
 
 Talisman(app, content_security_policy={
     'default-src': "'self'",

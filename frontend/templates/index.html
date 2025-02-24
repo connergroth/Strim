@@ -171,10 +171,10 @@
 <body>
     <!-- Authentication Section -->
     <div id="authSection">
-        <img src="/frontend/assets/strim-logo.jpg" alt="Strim Logo" class="logo">
+        <img src="/assets/strim-logo.jpg" alt="Strim Logo" class="logo">
         <br>
-        <a href="http://localhost:5000/auth">
-            <img src="/frontend/assets/btn_strava_connectwith_orange@2x.png" 
+        <a href="https://strimrun.vercel.app/auth">
+            <img src="/assets/btn_strava_connectwith_orange@2x.png" 
                  alt="Connect with Strava" 
                  class="strava-login-button">
         </a>
@@ -226,13 +226,13 @@
                 <i class="fab fa-github" style="font-size: 20px;"></i>
             </a>
         </p>
-        <img src="/frontend/assets/api_logo_pwrdBy_strava_horiz_gray.png" alt="Powered by Strava" class="strava-logo">
+        <img src="/assets/api_logo_pwrdBy_strava_horiz_gray.png" alt="Powered by Strava" class="strava-logo">
     </div>
 
     <script nonce="ABC123">
         async function checkAuthStatus() {
             try {
-                const response = await fetch("http://localhost:5000/auth/status", {
+                const response = await fetch("https://strimrun.vercel.app//auth/status", {
                     credentials: "include",  // Ensures cookies are sent
                 });
                 const data = await response.json();
@@ -258,7 +258,7 @@
 
         async function fetchActivities() {
             try {
-                const response = await fetch("http://localhost:5000/get-activities", {
+                const response = await fetch("https://strimrun.vercel.app//get-activities", {
                     credentials: "include",
                 });
                 const data = await response.json();
