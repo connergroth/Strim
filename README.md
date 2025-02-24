@@ -1,7 +1,7 @@
 
 ![Strava Trimmer Logo](https://github.com/user-attachments/assets/9597570b-dd86-4bfa-a957-29f0515cdb14)
 # Strim
-Ever forgotten to end your Strava run and messed up the pace? Does the treadmill say a different distance than Strava? 
+Ever forgotten to end your Strava run? Does the treadmill record a different distance than Strava? 
 
 If you've ever recorded an indoor/treadmill on your watch, using the Strava app, you probably found that the recorded distance was way off. 
 
