@@ -173,7 +173,7 @@
     <div id="authSection">
         <img src="/assets/strim-logo.jpg" alt="Strim Logo" class="logo">
         <br>
-        <a href="https://your-railway-backend-url.up.railway.app/auth"
+        <a href="https://strim-production.up.railway.app/auth"
         ">
             <img src="/assets/btn_strava_connectwith_orange@2x.png" 
                  alt="Connect with Strava" 
@@ -233,7 +233,7 @@
     <script nonce="ABC123">
         async function checkAuthStatus() {
             try {
-                const response = await fetch("https://your-railway-backend-url.up.railway.app/auth", {
+                const response = await fetch("https://strim-production.up.railway.app/auth", {
                     credentials: "include",  // Ensures cookies are sent
                 });
                 const data = await response.json();
@@ -259,7 +259,7 @@
 
         async function fetchActivities() {
             try {
-                const response = await fetch("https://your-railway-backend-url.up.railway.app/get-activities"
+                const response = await fetch("https://strim-production.up.railway.app/get-activities"
                 , {
                     credentials: "include",
                 });
