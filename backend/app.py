@@ -60,7 +60,6 @@ def strava_auth():
 
 @app.route("/auth/status", methods=["GET"])
 def auth_status():
-    app.logger.info(f"Session contents: {session}")  # Debug session issue
     return jsonify({"authenticated": "strava_token" in session})
 
 @app.route("/auth/callback", methods=["POST"])
