@@ -234,7 +234,7 @@
 
         async function checkAuthStatus() {
             try {
-                const response = await fetch("https://strimrun.vercel.app/auth-callback", {
+                const response = await fetch("https://strimrun.vercel.app/auth-callback.html", {
                     credentials: "include",  // Ensures cookies are sent
                 });
                 const data = await response.json();
