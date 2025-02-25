@@ -24,7 +24,7 @@
                 if (data.access_token) {
                     console.log("Authenticated:", data);
                     localStorage.setItem("strava_token", data.access_token);
-                    window.location.href = "/activity-selection"; // Redirect after OAuth
+                    window.location.href = "/index.html"; // Redirect after OAuth
                 } else {
                     console.error("OAuth failed", data);
                     window.location.href = "/";
