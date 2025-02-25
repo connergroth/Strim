@@ -4,6 +4,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
 import requests
+import redis
 import trimmer
 import api_utils
 

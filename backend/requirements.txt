@@ -5,6 +5,7 @@ flask_talisman
 fitparse
 pandas
 requests
+redis
 gunicorn
 werkzeug
 python-dotenv
