@@ -332,38 +332,51 @@
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get("code");
 
-            if (code) {
-                console.log("Received OAuth code:", code);
-
-                // Send code to backend
-                const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code })
-                });
-
-                const data = await response.json();
-                if (data.access_token) {
-                    console.log("Authenticated:", data);
-                    localStorage.setItem("strava_token", data.access_token);
-
-                    document.getElementById("authSection").classList.add("hidden"); 
+            if (!code) {
+                console.warn("No auth code found in URL. Checking if already logged in...");
+                
+                // Check if user already has a token stored
+                const stravaToken = localStorage.getItem("strava_token");
+                if (stravaToken) {
+                    console.log("User already authenticated. Showing activity selection...");
+                    document.getElementById("authSection").classList.add("hidden");
                     document.getElementById("activitySection").classList.remove("hidden");
-
-                    fetchActivities();  // Load activities after authentication
-                } else {
-                    console.error("OAuth failed", data);
-                    alert("Authentication failed. Please try again.");
-                    window.location.href = "/"; 
+                    fetchActivities();
+                    return;
                 }
+
+                console.error("User is not authenticated. Redirecting to login.");
+                return;
+            }
+
+            console.log("Received OAuth code:", code);
+
+            // Send code to backend
+            const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code })
+            });
+
+            const data = await response.json();
+            if (data.access_token) {
+                console.log("Authenticated:", data);
+                localStorage.setItem("strava_token", data.access_token);
+
+                window.history.replaceState({}, document.title, "/");
+
+                document.getElementById("authSection").classList.add("hidden");
+                document.getElementById("activitySection").classList.remove("hidden");
+                fetchActivities();
             } else {
-                console.error("No auth code found");
-                alert("No auth code received. Please try logging in again.");
-                window.location.href = "/";
+                console.error("OAuth failed", data);
+                alert("Authentication failed. Please try again.");
+                window.location.href = "/"; 
             }
         }
 
-        handleStravaOAuth();
+        // Run authentication check on page load
+        document.addEventListener("DOMContentLoaded", handleStravaOAuth);
     </script>
 </body>
 </html>
