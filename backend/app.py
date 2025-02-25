@@ -83,10 +83,13 @@ def strava_callback():
     response = requests.post(token_url, data=payload)
     token_data = response.json()
 
+    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
+
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
-        
-        app.logger.info(f"✅ Session after storing token: {session}")  # Debugging
+
+        # Log session contents after storing the token
+        app.logger.info(f"✅ After storing token, session: {dict(session)}")
 
         res = jsonify({"access_token": token_data["access_token"]})
         res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
@@ -94,6 +97,7 @@ def strava_callback():
         return res
     else:
         return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
+
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
