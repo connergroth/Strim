@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authenticating...</title>
 </head>
 <body>
@@ -15,7 +14,6 @@
             if (code) {
                 console.log("Received OAuth code:", code);
 
-                // Send code to backend to exchange for a token
                 const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -26,17 +24,13 @@
                 if (data.access_token) {
                     console.log("Authenticated:", data);
                     localStorage.setItem("strava_token", data.access_token);
-
-                    // Redirect to activity selection page after OAuth
-                    window.location.href = "/activity-selection";
+                    window.location.href = "/activity-selection"; // Redirect after OAuth
                 } else {
                     console.error("OAuth failed", data);
-                    alert("Authentication failed. Please try again.");
                     window.location.href = "/";
                 }
             } else {
                 console.error("No auth code found");
-                alert("No auth code received. Please try logging in again.");
                 window.location.href = "/";
             }
         }

@@ -335,6 +335,7 @@
             if (code) {
                 console.log("Received OAuth code:", code);
 
+                // Send code to backend
                 const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -345,12 +346,20 @@
                 if (data.access_token) {
                     console.log("Authenticated:", data);
                     localStorage.setItem("strava_token", data.access_token);
-                    window.location.href = "/dashboard"; // Redirect to dashboard
+
+                    document.getElementById("authSection").classList.add("hidden"); 
+                    document.getElementById("activitySection").classList.remove("hidden");
+
+                    fetchActivities();  // Load activities after authentication
                 } else {
                     console.error("OAuth failed", data);
+                    alert("Authentication failed. Please try again.");
+                    window.location.href = "/"; 
                 }
             } else {
                 console.error("No auth code found");
+                alert("No auth code received. Please try logging in again.");
+                window.location.href = "/";
             }
         }
 
