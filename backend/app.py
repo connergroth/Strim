@@ -27,14 +27,13 @@ SESSION_DIR = os.path.abspath("./flask_session")
 if not os.path.exists(SESSION_DIR):
     os.makedirs(SESSION_DIR)  # Create the session directory if it doesn’t exist
 
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "filesystem"  # Store sessions on disk
-app.config["SESSION_FILE_DIR"] = SESSION_DIR  # Save session files here
-app.config["SESSION_PERMANENT"] = True  # Ensure session persists
-app.config["SESSION_USE_SIGNER"] = True  # Prevents tampering
-app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevents JS access to session
-app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Ensures session persists across redirects
+app.config["SESSION_TYPE"] = "filesystem"  # Keep sessions stored on the server
+app.config["SESSION_FILE_DIR"] = SESSION_DIR
+app.config["SESSION_PERMANENT"] = True  
+app.config["SESSION_USE_SIGNER"] = True  
+app.config["SESSION_COOKIE_HTTPONLY"] = True  
+app.config["SESSION_COOKIE_SECURE"] = True  
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  
 
 Session(app)
 
@@ -87,13 +86,14 @@ def strava_callback():
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
         
+        app.logger.info(f"✅ Session after storing token: {session}")  # Debugging
+
         res = jsonify({"access_token": token_data["access_token"]})
         res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
         res.headers.add("Access-Control-Allow-Credentials", "true")
         return res
     else:
         return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
-
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
