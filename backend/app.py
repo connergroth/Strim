@@ -22,19 +22,17 @@ Talisman(app, content_security_policy={
     'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
 }, content_security_policy_report_only=True, content_security_policy_report_uri="/csp-report")
 
-# Ensure Session is Stored on Disk
-SESSION_DIR = os.path.abspath("./flask_session")  
-if not os.path.exists(SESSION_DIR):
-    os.makedirs(SESSION_DIR)  # Create the session directory if it doesn’t exist
+REDIS_URL = os.getenv("REDIS_URL")
 
+# Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "filesystem"  
-app.config["SESSION_FILE_DIR"] = SESSION_DIR  
-app.config["SESSION_PERMANENT"] = False  
+app.config["SESSION_TYPE"] = "redis"  
+app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_USE_SIGNER"] = True  
-app.config["SESSION_COOKIE_HTTPONLY"] = True  
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True  
-app.config["SESSION_COOKIE_SAMESITE"] = "None"    
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  
+app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)  
 
 Session(app)
 
