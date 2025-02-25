@@ -14,7 +14,7 @@ load_dotenv()
 # Start Session
 app = Flask(__name__, template_folder="../frontend/templates")
 
-CORS(app, supports_credentials=True, origins=["https://strim-production.up.railway.app"])  
+CORS(app, supports_credentials=True, origins=["https://strimrun.vercel.app"])  
 
 Talisman(app, content_security_policy={
     'default-src': "'self'",
@@ -85,10 +85,15 @@ def strava_callback():
     token_data = response.json()
 
     if "access_token" in token_data:
-        session["strava_token"] = token_data["access_token"]  
-        return jsonify({"access_token": token_data["access_token"]})
+        session["strava_token"] = token_data["access_token"]
+        
+        res = jsonify({"access_token": token_data["access_token"]})
+        res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
+        res.headers.add("Access-Control-Allow-Credentials", "true")
+        return res
     else:
         return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
+
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
