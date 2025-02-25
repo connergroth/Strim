@@ -27,13 +27,14 @@ SESSION_DIR = os.path.abspath("./flask_session")
 if not os.path.exists(SESSION_DIR):
     os.makedirs(SESSION_DIR)  # Create the session directory if it doesn’t exist
 
-app.config["SESSION_TYPE"] = "filesystem"  # Keep sessions stored on the server
-app.config["SESSION_FILE_DIR"] = SESSION_DIR
-app.config["SESSION_PERMANENT"] = True  
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+app.config["SESSION_TYPE"] = "filesystem"  
+app.config["SESSION_FILE_DIR"] = SESSION_DIR  
+app.config["SESSION_PERMANENT"] = False  
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True  
 app.config["SESSION_COOKIE_SECURE"] = True  
-app.config["SESSION_COOKIE_SAMESITE"] = "None"  
+app.config["SESSION_COOKIE_SAMESITE"] = "None"    
 
 Session(app)
 
