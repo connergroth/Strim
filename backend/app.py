@@ -101,7 +101,7 @@ def strava_callback():
 def get_activities():
     if "strava_token" not in session:
         app.logger.warning("Unauthorized request to get activities. Session contents:")
-        app.logger.warning(session)  # Debugging session issue
+        app.logger.warning(session)  
         return jsonify({"error": "Unauthorized. No valid session token."}), 401
 
     access_token = session["strava_token"]
