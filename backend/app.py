@@ -45,7 +45,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
 @app.route("/")
 def home():
-    return "You are logged in! Now select an activity to trim."
+    return jsonify({"message": "Backend is running"})
 
 @app.route("/auth")
 def strava_auth():
@@ -65,40 +65,30 @@ def auth_status():
     app.logger.info(f"Session contents: {session}")  # Debug session issue
     return jsonify({"authenticated": "strava_token" in session})
 
-@app.route("/auth/callback")
+@app.route("/auth/callback", methods=["POST"])
 def strava_callback():
-    code = request.args.get("code")
+    data = request.json
+    code = data.get("code")
 
     if not code:
-        app.logger.warning("No authorization code received")
-        return jsonify({"error": "No authorization code received"}), 400
+        return jsonify({"error": "Missing authorization code"}), 400
 
-    try:
-        response = requests.post("https://www.strava.com/oauth/token", data={
-            "client_id": os.getenv("STRAVA_CLIENT_ID"),
-            "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
-            "code": code,
-            "grant_type": "authorization_code"
-        })
+    token_url = "https://www.strava.com/oauth/token"
+    payload = {
+        "client_id": STRAVA_CLIENT_ID,
+        "client_secret": STRAVA_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code"
+    }
 
-        if response.status_code != 200:
-            app.logger.error(f"Strava API Error: {response.json()}")
-            return jsonify({"error": "Failed to exchange code for token", "details": response.json()}), 500
+    response = requests.post(token_url, data=payload)
+    token_data = response.json()
 
-        token_data = response.json()
-
-        # Store tokens in session
-        session["strava_token"] = token_data.get("access_token")
-        session["refresh_token"] = token_data.get("refresh_token")
-        session["expires_at"] = token_data.get("expires_at")
-
-        app.logger.info(f"Session after login: {session}")  # Debugging session
-
-        return redirect("/activity-selection")
-
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Request Error: {str(e)}")
-        return jsonify({"error": "Request to Strava failed", "details": str(e)}), 500
+    if "access_token" in token_data:
+        session["strava_token"] = token_data["access_token"]  
+        return jsonify({"access_token": token_data["access_token"]})
+    else:
+        return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
@@ -130,7 +120,7 @@ def get_activities():
 
 @app.route("/activity-selection")
 def activity_selection():
-    return render_template("index.html")  
+    return jsonify({"message": "Activity selection endpoint"})  
 
 @app.route("/update-distance", methods=["POST"])
 def update_distance():

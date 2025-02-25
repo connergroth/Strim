@@ -230,9 +230,11 @@
     </div>
 
     <script nonce="ABC123">
+        const BACKEND_URL = "https://strim-production.up.railway.app";
+
         async function checkAuthStatus() {
             try {
-                const response = await fetch("https://strim-production.up.railway.app/auth", {
+                const response = await fetch("https://strimrun.vercel.app/auth/callback", {
                     credentials: "include",  // Ensures cookies are sent
                 });
                 const data = await response.json();
@@ -258,13 +260,15 @@
 
         async function fetchActivities() {
             try {
-                const response = await fetch("https://strim-production.up.railway.app/get-activities"
-                , {
-                    credentials: "include",
+                const response = await fetch("https://strim-production.up.railway.app/get-activities", {
+                    credentials: "include", //  Ensures session token is sent
                 });
+
                 const data = await response.json();
+                console.log("Fetched activities:", data);
                 const activityList = document.getElementById("activityList");
                 activityList.innerHTML = "";
+
                 data.activities.forEach(activity => {
                     let row = document.createElement("tr");
                     row.innerHTML = `
@@ -324,6 +328,33 @@
                 alert("An error occurred while processing the activity.");
             }
         }
+        async function handleStravaOAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get("code");
+
+            if (code) {
+                console.log("Received OAuth code:", code);
+
+                const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code })
+                });
+
+                const data = await response.json();
+                if (data.access_token) {
+                    console.log("Authenticated:", data);
+                    localStorage.setItem("strava_token", data.access_token);
+                    window.location.href = "/dashboard"; // Redirect to dashboard
+                } else {
+                    console.error("OAuth failed", data);
+                }
+            } else {
+                console.error("No auth code found");
+            }
+        }
+
+        handleStravaOAuth();
     </script>
 </body>
 </html>
