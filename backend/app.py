@@ -75,8 +75,8 @@ def strava_callback():
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
-        "client_id": STRAVA_CLIENT_ID,
-        "client_secret": STRAVA_CLIENT_SECRET,
+        "client_id": os.getenv('STRAVA_CLIENT_ID'),
+        "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
         "code": code,
         "grant_type": "authorization_code"
     }
