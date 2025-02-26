@@ -64,52 +64,51 @@ def strava_auth():
 def auth_status():
     return jsonify({"authenticated": "strava_token" in session})
 
-@app.route("/auth/callback", methods=["GET"])
+@app.route("/auth/callback", methods=["POST"])
 def strava_callback():
-    app.logger.info(f"Received query parameters: {request.args}")
-
-    code = request.args.get("code")  # Extract the Strava auth code
+    data = request.json
+    code = data.get("code")
 
     if not code:
-        app.logger.error("⚠️ Missing authorization code.")
         return jsonify({"error": "Missing authorization code"}), 400
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
-        "client_id": os.getenv("STRAVA_CLIENT_ID"),
-        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
+        "client_id": os.getenv('STRAVA_CLIENT_ID'),
+        "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
         "code": code,
         "grant_type": "authorization_code"
     }
 
-    try:
-        res = requests.post(token_url, data=payload)  # ✅ Always define `res`
-        token_data = res.json()
+    response = requests.post(token_url, data=payload)
+    token_data = response.json()
 
-        app.logger.info(f"🔍 Strava Response Headers: {res.headers}")  # ✅ `res` is always defined
+    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
 
-        if "access_token" in token_data:
-            session["strava_token"] = token_data["access_token"]
-            session.modified = True
-            app.logger.info("✅ Access token stored successfully!")
+    if "access_token" in token_data:
+        session["strava_token"] = token_data["access_token"]
+        session.permanent = True
+        session.modified = True
 
-            return jsonify({"success": "Token stored", "access_token": token_data["access_token"]})
-        else:
-            app.logger.error(f"❌ Failed to exchange code: {token_data}")
-            return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
+        # Log session contents after storing the token
+        app.logger.info(f"✅ After storing token, session: {dict(session)}")
 
-    except Exception as e:
-        app.logger.error(f"🔥 Exception occurred in /auth/callback: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
+        res = jsonify({"access_token": token_data["access_token"]})
+        res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
+        res.headers.add("Access-Control-Allow-Credentials", "true")
+        return res
+    else:
+        return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
+    app.logger.info(f"🔎 Request Cookies: {request.cookies}")
+    app.logger.info(f"🔍 Session Data: {dict(session)}")
+
     if "strava_token" not in session:
-        app.logger.warning("Unauthorized request to get activities. Session contents:")
-        app.logger.warning(session)  
         return jsonify({"error": "Unauthorized. No valid session token."}), 401
+
+    return jsonify({"success": "Session is working!", "token": session["strava_token"]})
 
     access_token = session["strava_token"]
     url = "https://www.strava.com/api/v3/athlete/activities"
