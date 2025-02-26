@@ -3,6 +3,7 @@ from flask_session import Session
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
+from datetime import timedelta
 import requests
 import redis
 import trimmer
@@ -28,7 +29,8 @@ REDIS_URL = os.getenv("REDIS_URL")
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "redis"  
-app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True  
@@ -69,7 +71,10 @@ def strava_callback():
     code = data.get("code")
 
     if not code:
+        app.logger.error("❌ Missing authorization code in request!")
         return jsonify({"error": "Missing authorization code"}), 400
+
+    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
@@ -82,12 +87,11 @@ def strava_callback():
     response = requests.post(token_url, data=payload)
     token_data = response.json()
 
-    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
-
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
+        session.permanent = True  # ✅ Ensure the session persists
+        session.modified = True  # ✅ Force session save
 
-        # Log session contents after storing the token
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
 
         res = jsonify({"access_token": token_data["access_token"]})
@@ -95,8 +99,8 @@ def strava_callback():
         res.headers.add("Access-Control-Allow-Credentials", "true")
         return res
     else:
+        app.logger.error(f"❌ Failed to exchange code: {token_data}")
         return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
-
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
@@ -125,6 +129,11 @@ def get_activities():
         }
         for act in activities if act["type"] == "Run"
     ]})
+
+@app.after_request
+def log_response_headers(response):
+    app.logger.info(f"📩 Response Headers: {response.headers}")
+    return response
 
 @app.route("/activity-selection")
 def activity_selection():
