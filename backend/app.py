@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
 from datetime import timedelta
 import requests
+import traceback
 import redis
 import trimmer
 import api_utils
@@ -89,8 +90,8 @@ def strava_callback():
 
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
-        session.permanent = True  # ✅ Ensure the session persists
-        session.modified = True  # ✅ Force session save
+        session.permanent = True
+        session.modified = True
 
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
 
@@ -104,10 +105,13 @@ def strava_callback():
 
 @app.route("/get-activities", methods=["GET"])
 def get_activities():
+    app.logger.info(f"🔎 Request Cookies: {request.cookies}")
+    app.logger.info(f"🔍 Session Data: {dict(session)}")
+
     if "strava_token" not in session:
-        app.logger.warning("Unauthorized request to get activities. Session contents:")
-        app.logger.warning(session)  
         return jsonify({"error": "Unauthorized. No valid session token."}), 401
+
+    return jsonify({"success": "Session is working!", "token": session["strava_token"]})
 
     access_token = session["strava_token"]
     url = "https://www.strava.com/api/v3/athlete/activities"
@@ -172,8 +176,6 @@ def update_distance():
         return jsonify({"error": "Failed to create new activity"}), 500
 
     return jsonify({"success": True, "new_activity_id": new_activity_id})
-
-import traceback  # Add this to capture full error trace
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
