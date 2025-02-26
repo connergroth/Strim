@@ -69,13 +69,17 @@ def auth_status():
 @app.route("/auth/callback", methods=["POST"])
 def strava_callback():
     data = request.json
-    code = data.get("code")
 
+    # Log full request data for debugging
+    app.logger.info(f"📥 Received /auth/callback request: {data}")
+
+    # Extract and print the authorization code
+    code = data.get("code")
     if not code:
         app.logger.error("❌ Missing authorization code in request!")
         return jsonify({"error": "Missing authorization code"}), 400
 
-    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
+    app.logger.info(f"🔑 Strava Authorization Code: {code}")  # ✅ Print the code
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
@@ -85,8 +89,13 @@ def strava_callback():
         "grant_type": "authorization_code"
     }
 
+    app.logger.info(f"📡 Sending request to Strava: {payload}")
+
+    # Exchange code for access token
     response = requests.post(token_url, data=payload)
     token_data = response.json()
+
+    app.logger.info(f"🔄 Strava Response: {token_data}")
 
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
