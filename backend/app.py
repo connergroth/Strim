@@ -53,12 +53,12 @@ def home():
 def strava_auth():
 
     auth_url = (
-        f"https://www.strava.com/oauth/authorize"
-        f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
-        f"&response_type=code"
-        f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
-        f"&scope=activity:read,activity:read_all,activity:write"
-    )
+    f"https://www.strava.com/oauth/authorize"
+    f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
+    f"&response_type=code"
+    f"&redirect_uri=https://strimrun.vercel.app/auth/callback?fbclid=0"
+    f"&scope=activity:read,activity:read_all,activity:write"
+)
 
     return redirect(auth_url)
 
