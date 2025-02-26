@@ -87,9 +87,12 @@ def strava_callback():
 
     if "access_token" in token_data:
         session["strava_token"] = token_data["access_token"]
+        session.permanent = True
+        session.modified = True
 
         # Log session contents after storing the token
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
+        app.logger.info(f"Response headers: {res.headers}")
 
         res = jsonify({"access_token": token_data["access_token"]})
         res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
