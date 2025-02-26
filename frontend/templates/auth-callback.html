@@ -12,7 +12,6 @@
             const code = urlParams.get("code");
 
             if (code) {
-                document.write(`<p>🔑 Your OAuth Code: <b>${code}</b></p>`);
                 console.log("Received OAuth code:", code);
 
                 const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
@@ -35,7 +34,6 @@
                 window.location.href = "/";
             }
         }
-
         handleStravaOAuth();
     </script>
 </body>

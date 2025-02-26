@@ -393,6 +393,38 @@
             }
         }
 
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const authCode = urlParams.get("code");
+
+            if (authCode) {
+                console.log("🔑 OAuth Code Found:", authCode);
+                
+                // Save the code in localStorage so it's not lost
+                localStorage.setItem("strava_auth_code", authCode);
+
+                // Send to backend before it disappears
+                fetch("https://strim-production.up.railway.app/auth/callback", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ code: authCode })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ OAuth Exchange Success:", data);
+                    // Redirect only after backend confirms success
+                    window.location.href = "/activity-selection";
+                })
+                .catch(error => {
+                    console.error("❌ OAuth Exchange Failed:", error);
+                });
+            } else {
+                console.log("❌ No auth code found in URL.");
+            }
+        };
+
         function logout() {
             console.log("🔴 Logging out...");
             localStorage.removeItem("strava_token");  // Remove the stored token
