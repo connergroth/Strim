@@ -78,18 +78,28 @@ def strava_callback():
         app.logger.error("❌ Missing authorization code!")
         return jsonify({"error": "Missing authorization code"}), 400
 
-    app.logger.info(f"🔑 Received Strava Authorization Code: {code}")
+    # Log full request data for debugging
+    app.logger.info(f"📥 Received /auth/callback request: {data}")
+
+    # Extract and print the authorization code
+    code = data.get("code")
+    if not code:
+        app.logger.error("❌ Missing authorization code in request!")
+        return jsonify({"error": "Missing authorization code"}), 400
+
+    app.logger.info(f"🔑 Strava Authorization Code: {code}")  # ✅ Print the code
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
-        "client_id": os.getenv("STRAVA_CLIENT_ID"),
-        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
+        "client_id": os.getenv('STRAVA_CLIENT_ID'),
+        "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
         "code": code,
         "grant_type": "authorization_code"
     }
 
-    app.logger.info(f"📡 Sending request to Strava for access token: {payload}")
+    app.logger.info(f"📡 Sending request to Strava: {payload}")
 
+    # Exchange code for access token
     response = requests.post(token_url, data=payload)
     token_data = response.json()
 
@@ -102,8 +112,10 @@ def strava_callback():
 
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
 
-        # ✅ Redirect to activity selection after login
-        return redirect("https://strimrun.vercel.app/activity-selection")
+        res = jsonify({"access_token": token_data["access_token"]})
+        res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
+        res.headers.add("Access-Control-Allow-Credentials", "true")
+        return res
     else:
         app.logger.error(f"❌ Failed to exchange code: {token_data}")
         return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
