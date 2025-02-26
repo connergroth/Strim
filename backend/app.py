@@ -64,42 +64,44 @@ def strava_auth():
 def auth_status():
     return jsonify({"authenticated": "strava_token" in session})
 
-@app.route("/auth/callback", methods=["POST"])
+@app.route("/auth/callback", methods=["GET"])
 def strava_callback():
-    data = request.json
-    code = data.get("code")
+    app.logger.info(f"Received query parameters: {request.args}")
+
+    code = request.args.get("code")  # Extract the Strava auth code
 
     if not code:
+        app.logger.error("⚠️ Missing authorization code.")
         return jsonify({"error": "Missing authorization code"}), 400
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
-        "client_id": os.getenv('STRAVA_CLIENT_ID'),
-        "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
+        "client_id": os.getenv("STRAVA_CLIENT_ID"),
+        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
         "code": code,
         "grant_type": "authorization_code"
     }
 
-    response = requests.post(token_url, data=payload)
-    token_data = response.json()
+    try:
+        res = requests.post(token_url, data=payload)  # ✅ Always define `res`
+        token_data = res.json()
 
-    app.logger.info(f"🔍 Before storing token, session: {dict(session)}")
+        app.logger.info(f"🔍 Strava Response Headers: {res.headers}")  # ✅ `res` is always defined
 
-    if "access_token" in token_data:
-        session["strava_token"] = token_data["access_token"]
-        session.permanent = True
-        session.modified = True
+        if "access_token" in token_data:
+            session["strava_token"] = token_data["access_token"]
+            session.modified = True
+            app.logger.info("✅ Access token stored successfully!")
 
-        # Log session contents after storing the token
-        app.logger.info(f"✅ After storing token, session: {dict(session)}")
-        app.logger.info(f"Response headers: {res.headers}")
+            return jsonify({"success": "Token stored", "access_token": token_data["access_token"]})
+        else:
+            app.logger.error(f"❌ Failed to exchange code: {token_data}")
+            return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
 
-        res = jsonify({"access_token": token_data["access_token"]})
-        res.headers.add("Access-Control-Allow-Origin", "https://strimrun.vercel.app")  
-        res.headers.add("Access-Control-Allow-Credentials", "true")
-        return res
-    else:
-        return jsonify({"error": "Failed to exchange code for token", "details": token_data}), 400
+    except Exception as e:
+        app.logger.error(f"🔥 Exception occurred in /auth/callback: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
 
 
 @app.route("/get-activities", methods=["GET"])
