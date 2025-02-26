@@ -4,6 +4,7 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
 import requests
+import traceback
 import redis
 import trimmer
 import api_utils
@@ -163,8 +164,6 @@ def update_distance():
         return jsonify({"error": "Failed to create new activity"}), 500
 
     return jsonify({"success": True, "new_activity_id": new_activity_id})
-
-import traceback  # Add this to capture full error trace
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
