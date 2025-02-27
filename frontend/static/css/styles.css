@@ -1,0 +1,165 @@
+/* General Styles */
+body {
+    font-family: Inter, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+    color: #FC4C02;
+    padding: 20px;
+    text-align: center;
+}
+
+html, body {
+    overflow: hidden;
+    height: 100%;
+}
+
+h2 {
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+/* Container Styles */
+.container {
+    background: #FC4C02;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    color: white;
+    max-width: 400px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+/* Button Styles */
+button {
+    padding: 14px 22px;
+    background-color: white;
+    color: #FC4C02;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 16px;
+    margin-top: 20px;
+    display: inline-block;
+    width: 100%;
+    max-width: 300px;
+}
+
+button:hover {
+    background-color: #FF6A33;
+    color: white;
+    transform: scale(1.05);
+}
+
+/* Strava Login Button Styles */
+.strava-login-button {
+    width: 250px; 
+    cursor: pointer;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.strava-login-button:hover {
+    opacity: 0.8;
+    transform: scale(1.05);
+}
+
+/* Logo Styles */
+.logo {
+    width: 150px; 
+    margin-bottom: 20px;
+}
+
+/* Steps Section Styles */
+.steps {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 25px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 450px;
+    text-align: left;
+}
+
+/* Footer Styles */
+.footer {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    margin: 40px auto;
+    padding: 12px 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    font-size: 14px;
+    width: fit-content;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.footer a {
+    color: #FC4C02;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+.strava-logo {
+    height: 30px;
+    vertical-align: middle;
+    opacity: 0.8;
+}
+
+.strava-logo:hover {
+    opacity: 1;
+}
+
+/* Hidden Class */
+.hidden {
+    display: none;
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    color: black;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+th {
+    background-color: #FC4C02;
+    color: white;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+td input[type="radio"] {
+    transform: scale(1.2);
+}
