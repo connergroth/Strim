@@ -101,7 +101,7 @@ def strava_callback():
         session.modified = True
 
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
-        return redirect(url_for("activity_selection"))  # Redirect to activity selection page
+        return redirect(url_for("index.html"))  # Redirect to activity selection page
     else:
         return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
 
@@ -199,7 +199,7 @@ def download_fit():
 @app.route("/activity-selection")
 def activity_selection():
     """Render the activity selection page."""
-    return render_template("activity_selection.html")
+    return render_template("index.html")
 
 @app.route("/update-distance", methods=["POST"])
 def update_distance():
