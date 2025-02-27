@@ -264,7 +264,7 @@ def log_response_headers(response):
     """Log response headers for debugging."""
     return response
 
-# ---------------- END ROUTES -----------------
+# ---------------- END ROUTES ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
