@@ -1,104 +1,131 @@
-from flask import Flask, Response, request, redirect, jsonify, send_file, send_from_directory, session
+from flask import Flask, request, redirect, jsonify, session, render_template, url_for
 from flask_session import Session
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 from flask_talisman import Talisman
+from datetime import timedelta
 import requests
-import trimmer
-import logging
-
+import traceback
+import redis
 import os
+
+# Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
-# Start Session
-app = Flask(__name__)
-CORS(app)
+# Define base directories
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../frontend"))
+
+# Flask app setup
+app = Flask(
+    __name__, 
+    template_folder=os.path.join(FRONTEND_DIR, "templates"),  
+    static_folder=os.path.join(FRONTEND_DIR, "static")  
+)
+
+# CORS Configuration
+CORS(app, supports_credentials=True, origins=[
+    "https://strimrun.vercel.app",
+    "https://strim-conner-groths-projects.vercel.app/",  
+    "http://localhost:3000",  
+    "http://127.0.0.1:8080"
+])  
+
+# Security Headers
 Talisman(app, content_security_policy={
     'default-src': "'self'",
-    'script-src': "'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-    'style-src': "'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+    'script-src': "'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+    'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+    'img-src': "'self' data:",
+    'report-uri': "/csp-report"  
 })
 
+# Redis URL for session storage
+REDIS_URL = os.getenv("REDIS_URL")
+
+# Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "filesystem"  # Force session storage on disk
-app.config["SESSION_FILE_DIR"] = os.path.abspath("./flask_session")  # Ensure sessions are saved here
-app.config["SESSION_PERMANENT"] = False  # Sessions should expire
-app.config["SESSION_USE_SIGNER"] = True  # Protect session data
-app.config["SESSION_COOKIE_NAME"] = "strim_session"  # Custom session name
-app.config["SESSION_COOKIE_HTTPONLY"] = True  # Prevent JavaScript access
-app.config["SESSION_COOKIE_SECURE"] = False  # Change to True in production with HTTPS
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Fix Chrome session issues
+app.config["SESSION_TYPE"] = "redis"  
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+app.config["SESSION_USE_SIGNER"] = True  
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = True  
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  
+app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)  
 
 Session(app)
 
-# Logging 
-logging.basicConfig(filename="strim.log", level=logging.INFO, 
-                    format="%(asctime)s - %(levelname)s - %(message)s")
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.logger.info("Strim app started")
-
+# ---------------- ROUTES ----------------
 
 @app.route("/")
 def home():
-    return "You are logged in! Now select an activity to trim."
+    """Render the main page."""
+    return render_template("index.html")
 
 @app.route("/auth")
 def strava_auth():
+    """Redirect user to Strava OAuth login page."""
     auth_url = (
         f"https://www.strava.com/oauth/authorize"
         f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
         f"&response_type=code"
         f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
-        f"&scope=activity:write"
+        f"&scope=activity:read,activity:read_all,activity:write"
     )
     return redirect(auth_url)
 
-@app.route("/auth/status", methods=["GET"])
-def auth_status():
-    app.logger.info(f"Session contents: {session}")  # Debug session issue
-    return jsonify({"authenticated": "strava_token" in session})
-
-@app.route("/auth/callback")
+@app.route("/auth/callback", methods=["GET", "POST"])
 def strava_callback():
-    code = request.args.get("code")
+    """Handle Strava OAuth callback and store the session."""
+    # For GET requests (direct callback from Strava)
+    if request.method == "GET":
+        code = request.args.get("code")
+    # For POST requests (from frontend)
+    else:
+        data = request.json
+        code = data.get("code") if data else None
 
     if not code:
-        app.logger.warning("No authorization code received")
-        return jsonify({"error": "No authorization code received"}), 400
+        return jsonify({"error": "Missing authorization code"}), 400
 
-    try:
-        response = requests.post("https://www.strava.com/oauth/token", data={
-            "client_id": os.getenv("STRAVA_CLIENT_ID"),
-            "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
-            "code": code,
-            "grant_type": "authorization_code"
-        })
+    token_url = "https://www.strava.com/oauth/token"
+    payload = {
+        "client_id": os.getenv('STRAVA_CLIENT_ID'),
+        "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
+        "code": code,
+        "grant_type": "authorization_code"
+    }
 
-        if response.status_code != 200:
-            app.logger.error(f"Strava API Error: {response.json()}")
-            return jsonify({"error": "Failed to exchange code for token", "details": response.json()}), 500
+    app.logger.info(f"📡 Sending request to Strava: {payload}")
+    response = requests.post(token_url, data=payload)
+    token_data = response.json()
+    app.logger.info(f"🔄 Strava Response: {token_data}")
 
-        token_data = response.json()
+    if "access_token" in token_data:
+        session["strava_token"] = token_data["access_token"]
+        session.permanent = True
+        session.modified = True
 
-        # Store tokens in session
-        session["strava_token"] = token_data.get("access_token")
-        session["refresh_token"] = token_data.get("refresh_token")
-        session["expires_at"] = token_data.get("expires_at")
+        app.logger.info(f"✅ After storing token, session: {dict(session)}")
+        
+        # If it's a POST request, return JSON
+        if request.method == "POST":
+            return jsonify({"access_token": token_data["access_token"]}), 200
+        
+        # If it's a GET request, redirect to index
+        return redirect(url_for("activity_selection"))
+    else:
+        return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
 
-        app.logger.info(f"Session after login: {session}")  # Debugging session
-
-        return redirect("/")
-
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Request Error: {str(e)}")
-        return jsonify({"error": "Request to Strava failed", "details": str(e)}), 500
-
-@app.route("/get-activities", methods=["GET"])
+@app.route("/activities", methods=["GET"])
 def get_activities():
+    """Retrieve user activities from Strava API."""
     if "strava_token" not in session:
-        app.logger.warning("Unauthorized request to get activities. Session contents:")
-        app.logger.warning(session)  # Debugging session issue
         return jsonify({"error": "Unauthorized. No valid session token."}), 401
 
     access_token = session["strava_token"]
@@ -107,11 +134,9 @@ def get_activities():
 
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
-        app.logger.error(f"Failed to fetch activities: {response.json()}")
         return jsonify({"error": "Failed to fetch activities"}), 500
 
     activities = response.json()
-
     return jsonify({"activities": [
         {
             "id": act["id"],
@@ -122,57 +147,125 @@ def get_activities():
         for act in activities if act["type"] == "Run"
     ]})
 
-@app.route("/update-distance", methods=["POST"])
-def update_distance():
-    if "strava_token" not in session:
-        return jsonify({"error": "Unauthorized"})
-
-    data = request.jsonify
-    activity_id = data.get("activity_id")
-    corrected
-
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
+    try:
+        if "strava_token" not in session:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        activity_id = request.args.get("activity_id")
+        edit_distance = request.args.get("edit_distance") == "true"
+        new_distance = request.args.get("new_distance")
+
+        if not activity_id:
+            return jsonify({"error": "Missing activity ID"}), 400
+
+        if edit_distance and (not new_distance or float(new_distance) <= 0):
+            return jsonify({"error": "Invalid new distance provided"}), 400
+
+        # Get Access Token
+        access_token = api_utils.get_access_token()
+
+        # Get activity details before deletion
+        activity_metadata = api_utils.get_activity_details(activity_id)
+        if not activity_metadata:
+            return jsonify({"error": "Failed to retrieve activity details"}), 500
+
+        # Download original FIT file from Strava
+        fit_url = f"https://www.strava.com/api/v3/activities/{activity_id}/export_original"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        response = requests.get(fit_url, headers=headers, stream=True)
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to download FIT file"}), 500
+
+        fit_path = os.path.join(UPLOAD_FOLDER, f"{activity_id}.fit")
+        with open(fit_path, "wb") as fit_file:
+            for chunk in response.iter_content(chunk_size=1024):
+                fit_file.write(chunk)
+
+        # Process FIT file (trim stops and optionally edit distance)
+        df = trimmer.load_fit(fit_path)
+        end_timestamp = trimmer.detect_stop(df)
+        trimmed_df = trimmer.trim(df, end_timestamp, float(new_distance) if edit_distance else None)
+
+        # Convert to TCX format
+        trimmed_tcx = trimmer.convert_to_tcx(trimmed_df, f"{UPLOAD_FOLDER}/trimmed_{activity_id}.tcx")
+
+        # Step 1: Delete old activity from Strava
+        delete_success = api_utils.delete_activity(activity_id, access_token)
+        if not delete_success:
+            return jsonify({"error": "Failed to delete original activity"}), 500
+
+        # Step 2: Upload new trimmed activity
+        upload_id = api_utils.upload_tcx(access_token, trimmed_tcx, activity_metadata["name"])
+        if not upload_id:
+            return jsonify({"error": "Failed to upload new activity"}), 500
+
+        # Step 3: Wait for Strava to process the uploaded activity
+        new_activity_id = api_utils.check_upload_status(access_token, upload_id)
+        if not new_activity_id:
+            return jsonify({"error": "Upload processing failed"}), 500
+
+        return jsonify({"success": True, "new_activity_id": new_activity_id})
+
+    except Exception as e:
+        app.logger.error(f"Error in /download-fit: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+
+@app.route("/activity-selection")
+def activity_selection():
+    """Render the activity selection page."""
+    return render_template("index.html")
+
+@app.route("/update-distance", methods=["POST"])
+def update_distance():
+    """Update activity distance and re-upload to Strava."""
     if "strava_token" not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    activity_id = request.args.get("activity_id")
-    if not activity_id:
-        return jsonify({"error": "Missing activity ID"}), 400
+    data = request.json
+    activity_id = data.get("activity_id")
+    new_distance = data.get("new_distance")
 
-    access_token = session["strava_token"]
-    fit_url = f"https://www.strava.com/api/v3/activities/{activity_id}/export_original"
+    if not activity_id or not new_distance:
+        return jsonify({"error": "Missing required data"}), 400
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(fit_url, headers=headers)
+    access_token = api_utils.get_access_token()
 
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to download FIT file"}), 500
+    # Fetch existing activity details
+    activity_metadata = api_utils.get_activity_details(activity_id)
+    if not activity_metadata:
+        return jsonify({"error": "Failed to fetch activity details"}), 500
 
-    # Save the file
-    fit_path = f"uploads/{activity_id}.fit"
-    with open(fit_path, "wb") as fit_file:
-        fit_file.write(response.content)
+    # Update metadata with new distance
+    activity_metadata["distance"] = float(new_distance)
 
-    # Step 1: Trim the activity
-    df = trimmer.load_fit(fit_path)
-    end_timestamp = trimmer.detect_stop(df)
-    trimmed_df = trimmer.trim(df, end_timestamp)
+    # Delete original activity
+    delete_success = api_utils.delete_activity(activity_id, access_token)
+    if not delete_success:
+        return jsonify({"error": "Failed to delete original activity"}), 500
 
-    # Step 2: Convert and Modify Distance
-    corrected_distance = trimmed_df["distance"].max()
-    corrected_tcx = trimmer.convert_to_tcx(trimmed_df, f"uploads/trimmed_{activity_id}.tcx", corrected_distance)
+    # Recreate activity with updated distance
+    new_activity_id = api_utils.create_activity(access_token, activity_metadata)
+    if not new_activity_id:
+        return jsonify({"error": "Failed to create new activity"}), 500
 
-    # Step 3: Delete old activity and re-upload the trimmed one
-    utils.delete_activity(activity_id, access_token)
-    upload_id = utils.upload_tcx(access_token, corrected_tcx)
+    return jsonify({"success": True, "new_activity_id": new_activity_id})
 
-    if upload_id:
-        new_activity_id = utils.check_upload_status(access_token, upload_id)
-        return jsonify({"success": True, "new_activity_id": new_activity_id})
-    else:
-        return jsonify({"error": "Failed to upload trimmed activity"}), 500
+@app.route("/logout", methods=["POST"])
+def logout():
+    """Logout user by clearing session."""
+    session.clear()
+    return jsonify({"success": "Logged out"}), 200
 
+@app.after_request
+def log_response_headers(response):
+    """Log response headers for debugging."""
+    return response
+
+# ---------------- END ROUTES ----------------
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(debug=True, host="0.0.0.0", port=port)
