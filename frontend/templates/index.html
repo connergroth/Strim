@@ -25,7 +25,7 @@
     <div id="authSection">
         <img src="{{ url_for('static', filename='assets/strim-logo.jpg') }}" alt="Strim Logo" class="logo">
         <br>
-        <a href="https://strim-production.up.railway.app/auth">
+        <a href="#" id="stravaAuthLink">
             <img src="{{ url_for('static', filename='assets/btn_strava_connectwith_orange@2x.png') }}" 
                  alt="Connect with Strava" 
                  class="strava-login-button">
@@ -62,7 +62,7 @@
     
         <button onclick="downloadAndProcessActivity()">Trim Activity</button>
         <p id="message"></p>
-        <button id="logoutButton">Log Out</button>
+        <button id="logoutButton" onclick="logout()">Log Out</button>
     </div>
 
     <div class="steps">
@@ -81,5 +81,16 @@
         <img src="{{ url_for('static', filename='assets/api_logo_pwrdBy_strava_horiz_gray.png') }}" 
              alt="Powered by Strava" class="strava-logo">
     </div>
+
+    <script>
+        // Set the auth link dynamically based on environment
+        document.addEventListener('DOMContentLoaded', function() {
+            const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+                ? "http://localhost:8080"
+                : "https://strim-production.up.railway.app";
+                
+            document.getElementById('stravaAuthLink').href = `${BACKEND_URL}/auth`;
+        });
+    </script>
 </body>
 </html>

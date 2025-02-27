@@ -1,4 +1,7 @@
-const BACKEND_URL = "https://strim-production.up.railway.app";
+// Update the BACKEND_URL to be environment-aware
+const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:8080"  // Local development backend URL
+  : "https://strim-production.up.railway.app";  // Production backend URL
 
 function checkAuthStatus() {
     const stravaToken = localStorage.getItem("strava_token");
@@ -16,7 +19,7 @@ async function fetchActivities() {
     try {
         console.log("Fetching activities...");
 
-        const response = await fetch("https://strim-production.up.railway.app/get-activities", {
+        const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
             credentials: "include",  // Ensures cookies are sent
             headers: {
@@ -91,7 +94,7 @@ async function downloadAndProcessActivity() {
 
         // Ensure newDistance is properly encoded
         const encodedDistance = newDistance ? encodeURIComponent(newDistance) : "";
-        const url = `/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
+        const url = `${BACKEND_URL}/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
 
         const response = await fetch(url);
         const result = await response.json();
@@ -181,9 +184,17 @@ document.addEventListener("DOMContentLoaded", function () {
         // Remove code from URL without reloading
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        // Redirect to backend (avoid Meta Pixel issues)
-        window.location.href = `https://strim-production.up.railway.app/auth/callback?code=${authCode}`;
+        // Use consistent backend URL
+        window.location.href = `${BACKEND_URL}/auth/callback?code=${authCode}`;
     } else {
         console.log("❌ No auth code found in URL.");
+        
+        // Check if user is already authenticated
+        const stravaToken = localStorage.getItem("strava_token");
+        if (stravaToken) {
+            document.getElementById("authSection").classList.add("hidden");
+            document.getElementById("activitySection").classList.remove("hidden");
+            fetchActivities();
+        }
     }
 });

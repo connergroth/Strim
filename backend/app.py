@@ -24,7 +24,12 @@ app = Flask(
 )
 
 # CORS Configuration
-CORS(app, supports_credentials=True, origins=["https://strimrun.vercel.app"])  
+CORS(app, supports_credentials=True, origins=[
+    "https://strimrun.vercel.app",
+    "https://strim-conner-groths-projects.vercel.app/",  
+    "http://localhost:3000",  
+    "http://127.0.0.1:8080"
+])  
 
 # Security Headers
 Talisman(app, content_security_policy={
@@ -74,10 +79,16 @@ def strava_auth():
     )
     return redirect(auth_url)
 
-@app.route("/auth/callback", methods=["GET"])
+@app.route("/auth/callback", methods=["GET", "POST"])
 def strava_callback():
     """Handle Strava OAuth callback and store the session."""
-    code = request.args.get("code")
+    # For GET requests (direct callback from Strava)
+    if request.method == "GET":
+        code = request.args.get("code")
+    # For POST requests (from frontend)
+    else:
+        data = request.json
+        code = data.get("code") if data else None
 
     if not code:
         return jsonify({"error": "Missing authorization code"}), 400
@@ -101,7 +112,13 @@ def strava_callback():
         session.modified = True
 
         app.logger.info(f"✅ After storing token, session: {dict(session)}")
-        return redirect(url_for("index.html"))  # Redirect to activity selection page
+        
+        # If it's a POST request, return JSON
+        if request.method == "POST":
+            return jsonify({"access_token": token_data["access_token"]}), 200
+        
+        # If it's a GET request, redirect to index
+        return redirect(url_for("activity_selection"))
     else:
         return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
 
