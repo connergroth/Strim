@@ -1,12 +1,23 @@
 {
     "version": 2,
+    "public": true,
     "builds": [
-      { "src": "frontend/**/*", "use": "@vercel/static" },
-      { "src": "backend/app.py", "use": "@vercel/python" }
+      { "src": "frontend/**/*", "use": "@vercel/static" }
     ],
     "routes": [
-      { "src": "/static/(.*)", "dest": "/frontend/static/$1" },
-      { "src": "/api/(.*)", "dest": "/backend/app.py" },
+      { "src": "/(.*)", "dest": "/frontend/$1" },
+      { "handle": "filesystem" },
       { "src": "/(.*)", "dest": "/frontend/templates/index.html" }
+    ],
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          { "key": "Access-Control-Allow-Credentials", "value": "true" },
+          { "key": "Access-Control-Allow-Origin", "value": "*" },
+          { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
+          { "key": "Access-Control-Allow-Headers", "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version" }
+        ]
+      }
     ]
   }

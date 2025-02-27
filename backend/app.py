@@ -13,14 +13,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Define base directories
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../frontend"))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
-# Flask app setup
 app = Flask(
     __name__, 
     template_folder=os.path.join(FRONTEND_DIR, "templates"),  
-    static_folder=os.path.join(FRONTEND_DIR, "static")  
+    static_folder=os.path.join(FRONTEND_DIR, "static"),
+    static_url_path="/static" 
 )
 
 # CORS Configuration
@@ -269,3 +269,6 @@ def log_response_headers(response):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=True, host="0.0.0.0", port=port)
+
+def create_app():
+    return app
