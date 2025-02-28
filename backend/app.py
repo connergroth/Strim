@@ -132,7 +132,7 @@ def strava_callback():
 
             app.logger.info(f"✅ After storing token, session: {dict(session)}")
             
-            return redirect({FRONTEND_URL})
+            return redirect(FRONTEND_URL)
         else:
             return redirect(url_for("home", error="Failed to authenticate with Strava"))
     except Exception as e:
