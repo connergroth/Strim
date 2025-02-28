@@ -9,7 +9,7 @@ import redis
 import time
 import os
 
-from backend import api_utils, trimmer
+from . import api_utils, trimmer
 
 # Load environment variables
 from dotenv import load_dotenv
