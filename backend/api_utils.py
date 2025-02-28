@@ -2,6 +2,7 @@ import os
 import json
 import time
 import requests
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,10 +23,12 @@ def get_access_token():
     data = response.json()
 
     if "access_token" not in data:
-        raise Exception(f"Error recieving access token: {data}")
-
+        raise Exception(f"Error receiving access token: {data}")
+    
+    # Store the access token in a variable before referencing it
+    access_token = data["access_token"]
     print(f"New access token: {access_token}") 
-    return data["access_token"]
+    return access_token
 
 def delete_activity(activity_id, access_token):
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
@@ -35,11 +38,11 @@ def delete_activity(activity_id, access_token):
 
     if response.status_code == 204:
         print(f"Activity {activity_id} deleted successfully.")
+        return True
     else:
         print(f"Failed to delete activity {activity_id}")
+        return False
     
-import logging
-
 def get_activity_details(activity_id):
     access_token = get_access_token()
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
@@ -76,9 +79,12 @@ def create_activity(access_token, metadata):
     response = requests.post(url, headers=headers, data=activity_data)
 
     if response.status_code == 201:
-        print(f"New activity created successfully: {response.json()['id']}")
+        new_activity_id = response.json()['id']
+        print(f"New activity created successfully: {new_activity_id}")
+        return new_activity_id
     else:
         print("Failed to create activity:", response.json())
+        return None
 
 
 def upload_tcx(access_token, file_path, activity_name="Trimmed Activity"):
@@ -121,4 +127,3 @@ def check_upload_status(access_token, upload_id):
 
         print("Waiting for upload to process...")
         time.sleep(5)  # Wait 5 seconds before checking again
-

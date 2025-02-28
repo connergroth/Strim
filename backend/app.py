@@ -6,7 +6,10 @@ from datetime import timedelta
 import requests
 import traceback
 import redis
+import time
 import os
+
+from backend import api_utils, trimmer
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -45,6 +48,16 @@ Talisman(app, content_security_policy={
     'img-src': "'self' data:",
     'report-uri': "/csp-report"  
 })
+
+# Environment configuration
+if os.getenv("ENVIRONMENT") == "production":
+    BASE_URL = "https://strim-production.up.railway.app"
+    FRONTEND_URL = "https://strimrun.vercel.app"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+else:
+    BASE_URL = "http://localhost:8080"
+    FRONTEND_URL = "http://localhost:3000"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
@@ -321,14 +334,6 @@ def inject_env_variables():
     }
 
 # ---------------- END ROUTES ----------------
-
-# Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

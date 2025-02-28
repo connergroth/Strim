@@ -3,18 +3,55 @@ const BACKEND_URL = window.location.hostname === "localhost" || window.location.
   ? "http://localhost:8080"  // Local development backend URL
   : "https://strim-production.up.railway.app";  // Production backend URL
 
+/**
+ * Check if user is authenticated and redirect if needed
+ */
 function checkAuthStatus() {
-    const stravaToken = localStorage.getItem("strava_token");
-
-    if (!stravaToken) {
-        console.log("❌ User is NOT authenticated. Redirecting to login...");
-        if (!window.location.pathname.includes("index.html")) {
-            window.location.href = "/index.html";
+    console.log("Checking authentication status...");
+    
+    fetch(`${BACKEND_URL}/api/session-status`, {
+        method: "GET",
+        credentials: "include"  // Send cookies with request
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Auth status response:", data);
+        if (data.authenticated) {
+            console.log("✅ User is authenticated");
+            
+            // If we're on the main page, show the activity section
+            if (window.location.pathname === "/" || 
+                window.location.pathname === "/index.html") {
+                document.getElementById("authSection").classList.add("hidden");
+                document.getElementById("activitySection").classList.remove("hidden");
+                fetchActivities();
+            }
+        } else {
+            console.log("❌ User is NOT authenticated");
+            
+            // If not on index page, redirect to login
+            if (window.location.pathname !== "/index.html" && 
+                window.location.pathname !== "/") {
+                window.location.href = "/index.html";
+            }
+            
+            // Ensure auth section is visible on index page
+            if (document.getElementById("authSection")) {
+                document.getElementById("authSection").classList.remove("hidden");
+            }
+            if (document.getElementById("activitySection")) {
+                document.getElementById("activitySection").classList.add("hidden");
+            }
         }
-    }
-    return;
+    })
+    .catch(error => {
+        console.error("Error checking auth status:", error);
+    });
 }
 
+/**
+ * Fetch user's activities from Strava
+ */
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
@@ -32,7 +69,6 @@ async function fetchActivities() {
 
             if (response.status === 401) {
                 alert("Session expired. Please log in again.");
-                localStorage.removeItem("strava_token");  // Clear invalid token
                 window.location.href = "/index.html";  // Redirect to login
             }
             return;
@@ -41,7 +77,7 @@ async function fetchActivities() {
         const data = await response.json();
         console.log("✅ Fetched activities:", data);
 
-        if (!data.activities) {
+        if (!data.activities || data.activities.length === 0) {
             document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>No activities found</td></tr>";
             return;
         }
@@ -66,11 +102,17 @@ async function fetchActivities() {
     }
 }
 
+/**
+ * Toggle distance input visibility based on checkbox
+ */
 function toggleDistanceInput() {
     const editDistanceChecked = document.getElementById("editDistanceCheckbox").checked;
     document.getElementById("distanceInputContainer").style.display = editDistanceChecked ? "block" : "none";
 }
 
+/**
+ * Process selected activity and send to backend
+ */
 async function downloadAndProcessActivity() {
     const selectedActivity = document.querySelector('input[name="selectedActivity"]:checked');
     if (!selectedActivity) {
@@ -79,8 +121,6 @@ async function downloadAndProcessActivity() {
     }
 
     const activityId = selectedActivity.value;
-    localStorage.setItem("selectedActivityId", activityId);
-
     const editDistance = document.getElementById("editDistanceCheckbox").checked;
     let newDistance = editDistance ? document.getElementById("newDistance").value : null;
 
@@ -96,7 +136,16 @@ async function downloadAndProcessActivity() {
         const encodedDistance = newDistance ? encodeURIComponent(newDistance) : "";
         const url = `${BACKEND_URL}/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: "GET",
+            credentials: "include"  // Ensure cookies are sent
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to process activity");
+        }
+
         const result = await response.json();
 
         if (result.success) {
@@ -107,94 +156,53 @@ async function downloadAndProcessActivity() {
         }
     } catch (error) {
         console.error("Error processing activity:", error);
-        alert("An error occurred while processing the activity.");
+        document.getElementById("message").innerText = "";
+        alert("An error occurred while processing the activity: " + error.message);
     }
 }
 
-async function handleStravaOAuth() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-
-    if (!code) {
-        console.warn("No auth code found in URL. Checking if already logged in...");
-
-        const stravaToken = localStorage.getItem("strava_token");
-        if (stravaToken) {
-            console.log("✅ User already authenticated. Showing activity selection...");
-            document.getElementById("authSection").classList.add("hidden");
-            document.getElementById("activitySection").classList.remove("hidden");
-            fetchActivities();
-            return;
-        }
-
-        console.error("User is not authenticated. Redirecting to login.");
-        return;
-    }
-
-    console.log("Received OAuth code:", code);
-
-    try {
-        const response = await fetch(`${BACKEND_URL}/auth/callback`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code })
-        });
-
-        const data = await response.json();
-        if (data.access_token) {
-            console.log("✅ Authentication successful:", data);
-            localStorage.setItem("strava_token", data.access_token);
-
-            // Remove the auth code from URL to prevent unwanted refresh behavior
-            window.history.replaceState({}, document.title, "/");
-
-            document.getElementById("authSection").classList.add("hidden");
-            document.getElementById("activitySection").classList.remove("hidden");
-            fetchActivities();
-        } else {
-            console.error("OAuth failed", data);
-            alert("Authentication failed. Please try again.");
-            window.location.href = "/index.html"; 
-        }
-    } catch (error) {
-        console.error("Error during OAuth process:", error);
-        alert("An error occurred. Please try logging in again.");
-        window.location.href = "/index.html";
-    }
-}
-
+/**
+ * Handle logout
+ */
 function logout() {
     console.log("🔴 Logging out...");
-    localStorage.removeItem("strava_token");  // Remove the stored token
-
-    // Redirect to login page
-    window.location.href = "/index.html";
+    
+    fetch(`${BACKEND_URL}/logout`, {
+        method: "POST",
+        credentials: "include" // Send cookies
+    })
+    .then(() => {
+        // Redirect to login page
+        window.location.href = "/index.html";
+    })
+    .catch(error => {
+        console.error("Error logging out:", error);
+        window.location.href = "/index.html";
+    });
 }
 
+/**
+ * Initialize on page load
+ */
 document.addEventListener("DOMContentLoaded", function () {
-    const urlParams = new URLSearchParams(window.location.search);
-    const authCode = urlParams.get("code");
-
-    if (authCode) {
-        console.log("🔑 OAuth Code Found:", authCode);
-
-        // Save code in localStorage before it's removed
-        localStorage.setItem("strava_auth_code", authCode);
-
-        // Remove code from URL without reloading
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        // Use consistent backend URL
-        window.location.href = `${BACKEND_URL}/auth/callback?code=${authCode}`;
-    } else {
-        console.log("❌ No auth code found in URL.");
-        
-        // Check if user is already authenticated
-        const stravaToken = localStorage.getItem("strava_token");
-        if (stravaToken) {
-            document.getElementById("authSection").classList.add("hidden");
-            document.getElementById("activitySection").classList.remove("hidden");
-            fetchActivities();
-        }
+    console.log("Document loaded, checking authentication...");
+    
+    // Configure Strava auth link
+    const stravaAuthLink = document.getElementById("stravaAuthLink");
+    if (stravaAuthLink) {
+        stravaAuthLink.href = `${BACKEND_URL}/auth`;
     }
+    
+    // Check if redirected from OAuth
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    
+    if (code) {
+        console.log("🔑 OAuth Code Found:", code);
+        // Remove code from URL to prevent issues on refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Check auth status and load appropriate view
+    checkAuthStatus();
 });
