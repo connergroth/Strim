@@ -87,7 +87,6 @@ def home():
 @app.route("/auth")
 def strava_auth():
     """Redirect user to Strava OAuth login page."""
-    # Store the return_to URL if provided (for multi-page apps)
     if request.args.get("return_to"):
         session["return_to"] = request.args.get("return_to")
         
@@ -133,9 +132,7 @@ def strava_callback():
 
             app.logger.info(f"✅ After storing token, session: {dict(session)}")
             
-            # Redirect to intended page or default to home
-            return_to = session.pop("return_to", url_for("activity_selection"))
-            return redirect(return_to)
+            return redirect({FRONTEND_URL})
         else:
             return redirect(url_for("home", error="Failed to authenticate with Strava"))
     except Exception as e:
@@ -146,7 +143,6 @@ def strava_callback():
 def session_status():
     """Check if user is authenticated and return status."""
     if "strava_token" in session:
-        # Optionally check if token is expired and refresh if needed
         if session.get("expires_at") and time.time() > session.get("expires_at"):
             try:
                 # Refresh token logic
