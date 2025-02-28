@@ -49,16 +49,6 @@ Talisman(app, content_security_policy={
     'report-uri': "/csp-report"  
 })
 
-# Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "redis"  
@@ -70,8 +60,15 @@ app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "produ
 app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
 app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
 
+# Environment configuration
 if os.getenv("ENVIRONMENT") == "production":
-    app.config["SESSION_COOKIE_DOMAIN"] = "https://strimrun.vercel.app"  
+    BASE_URL = "https://strim-production.up.railway.app"
+    FRONTEND_URL = "https://strimrun.vercel.app"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+else:
+    BASE_URL = "http://localhost:8080"
+    FRONTEND_URL = "http://localhost:3000"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 Session(app)
 
