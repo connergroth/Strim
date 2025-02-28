@@ -50,16 +50,6 @@ Talisman(app, content_security_policy={
     'report-uri': "/csp-report"  
 })
 
-# Flask session configuration
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "redis"  
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
-app.config["SESSION_USE_SIGNER"] = True  
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
-app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
-
 # Environment configuration
 if os.getenv("ENVIRONMENT") == "production":
     BASE_URL = "https://strim-production.up.railway.app"
@@ -69,6 +59,17 @@ else:
     BASE_URL = "http://localhost:8080"
     FRONTEND_URL = "http://localhost:3000"
     REDIS_URL = os.getenv("REDIS_URL")
+
+# Flask session configuration
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+app.config["SESSION_TYPE"] = "redis"  
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+app.config["SESSION_USE_SIGNER"] = True  
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
+app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
+app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
 
 Session(app)
 
