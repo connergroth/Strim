@@ -19,6 +19,7 @@
 
     <!-- Link External JS -->
     <script defer src="/static/js/script.js"></script>
+    <script src="/static/js/config.js"></script>
 </head>
 <body>
     <!-- Authentication Section -->
@@ -83,14 +84,31 @@
     </div>
 
     <script>
-        // Set the auth link dynamically based on environment
         document.addEventListener('DOMContentLoaded', function() {
             const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
                 ? "http://localhost:8080"
                 : "https://strim-production.up.railway.app";
-                
+            
             document.getElementById('stravaAuthLink').href = `${BACKEND_URL}/auth`;
+            
+            // Check if user is logged in
+            checkLoginStatus();
         });
+
+        function checkLoginStatus() {
+            fetch('/api/session-status', {
+                credentials: 'include' 
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    // Show activities section
+                    document.getElementById('authSection').classList.add('hidden');
+                    document.getElementById('activitySection').classList.remove('hidden');
+                    loadActivities();
+                }
+            });
+        }
     </script>
 </body>
 </html>
