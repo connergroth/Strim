@@ -6,7 +6,10 @@ from datetime import timedelta
 import requests
 import traceback
 import redis
+import time
 import os
+
+from backend import api_utils, trimmer
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -55,10 +58,17 @@ app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
 app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
-app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
+app.config["SESSION_REDIS"] = os.getenv(REDIS_URL)
 
+# Environment configuration
 if os.getenv("ENVIRONMENT") == "production":
-    app.config["SESSION_COOKIE_DOMAIN"] = "https://strimrun.vercel.app"  
+    BASE_URL = "https://strim-production.up.railway.app"
+    FRONTEND_URL = "https://strimrun.vercel.app"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+else:
+    BASE_URL = "http://localhost:8080"
+    FRONTEND_URL = "http://localhost:3000"
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 Session(app)
 
@@ -321,14 +331,6 @@ def inject_env_variables():
     }
 
 # ---------------- END ROUTES ----------------
-
-# Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
