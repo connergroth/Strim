@@ -24,12 +24,18 @@ app = Flask(
 )
 
 # CORS Configuration
-CORS(app, supports_credentials=True, origins=[
-    "https://strimrun.vercel.app",
-    "https://strim-conner-groths-projects.vercel.app/",  
-    "http://localhost:3000",  
-    "http://127.0.0.1:8080"
-])  
+CORS(app, 
+    supports_credentials=True,  
+    origins=[
+        "https://strimrun.vercel.app",
+        "https://strim-conner-groths-projects.vercel.app",  
+        "http://localhost:3000",  
+        "http://127.0.0.1:8080",
+        "http://localhost:8080"
+    ],
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+) 
 
 # Security Headers
 Talisman(app, content_security_policy={
@@ -40,9 +46,6 @@ Talisman(app, content_security_policy={
     'report-uri': "/csp-report"  
 })
 
-# Redis URL for session storage
-REDIS_URL = os.getenv("REDIS_URL")
-
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "redis"  
@@ -50,9 +53,12 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True  
-app.config["SESSION_COOKIE_SAMESITE"] = "None"  
-app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)  
+app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
+app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
+app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
+
+if os.getenv("ENVIRONMENT") == "production":
+    app.config["SESSION_COOKIE_DOMAIN"] = "https://strimrun.vercel.app"  
 
 Session(app)
 
@@ -70,6 +76,10 @@ def home():
 @app.route("/auth")
 def strava_auth():
     """Redirect user to Strava OAuth login page."""
+    # Store the return_to URL if provided (for multi-page apps)
+    if request.args.get("return_to"):
+        session["return_to"] = request.args.get("return_to")
+        
     auth_url = (
         f"https://www.strava.com/oauth/authorize"
         f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
@@ -79,19 +89,13 @@ def strava_auth():
     )
     return redirect(auth_url)
 
-@app.route("/auth/callback", methods=["GET", "POST"])
+@app.route("/auth/callback", methods=["GET"])
 def strava_callback():
     """Handle Strava OAuth callback and store the session."""
-    # For GET requests (direct callback from Strava)
-    if request.method == "GET":
-        code = request.args.get("code")
-    # For POST requests (from frontend)
-    else:
-        data = request.json
-        code = data.get("code") if data else None
-
+    code = request.args.get("code")
+    
     if not code:
-        return jsonify({"error": "Missing authorization code"}), 400
+        return redirect(url_for("home", error="Missing authorization code"))
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
@@ -102,25 +106,69 @@ def strava_callback():
     }
 
     app.logger.info(f"📡 Sending request to Strava: {payload}")
-    response = requests.post(token_url, data=payload)
-    token_data = response.json()
-    app.logger.info(f"🔄 Strava Response: {token_data}")
+    try:
+        response = requests.post(token_url, data=payload)
+        token_data = response.json()
+        app.logger.info(f"🔄 Strava Response: {token_data}")
 
-    if "access_token" in token_data:
-        session["strava_token"] = token_data["access_token"]
-        session.permanent = True
-        session.modified = True
+        if "access_token" in token_data:
+            # Store all token data in session
+            session["strava_token"] = token_data["access_token"]
+            session["refresh_token"] = token_data.get("refresh_token")
+            session["expires_at"] = token_data.get("expires_at")
+            session["athlete"] = token_data.get("athlete")
+            session.permanent = True
+            session.modified = True
 
-        app.logger.info(f"✅ After storing token, session: {dict(session)}")
-        
-        # If it's a POST request, return JSON
-        if request.method == "POST":
-            return jsonify({"access_token": token_data["access_token"]}), 200
-        
-        # If it's a GET request, redirect to index
-        return redirect(url_for("activity_selection"))
+            app.logger.info(f"✅ After storing token, session: {dict(session)}")
+            
+            # Redirect to intended page or default to home
+            return_to = session.pop("return_to", url_for("activity_selection"))
+            return redirect(return_to)
+        else:
+            return redirect(url_for("home", error="Failed to authenticate with Strava"))
+    except Exception as e:
+        app.logger.error(f"Error in Strava callback: {str(e)}")
+        return redirect(url_for("home", error="Authentication error"))
+
+@app.route("/api/session-status")
+def session_status():
+    """Check if user is authenticated and return status."""
+    if "strava_token" in session:
+        # Optionally check if token is expired and refresh if needed
+        if session.get("expires_at") and time.time() > session.get("expires_at"):
+            try:
+                # Refresh token logic
+                token_url = "https://www.strava.com/oauth/token"
+                payload = {
+                    "client_id": os.getenv('STRAVA_CLIENT_ID'),
+                    "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
+                    "refresh_token": session.get("refresh_token"),
+                    "grant_type": "refresh_token"
+                }
+                response = requests.post(token_url, data=payload)
+                if response.status_code == 200:
+                    token_data = response.json()
+                    session["strava_token"] = token_data["access_token"]
+                    session["refresh_token"] = token_data.get("refresh_token")
+                    session["expires_at"] = token_data.get("expires_at")
+                    session.modified = True
+                else:
+                    # Failed to refresh, consider user logged out
+                    session.clear()
+                    return jsonify({"authenticated": False})
+            except Exception as e:
+                app.logger.error(f"Error refreshing token: {str(e)}")
+                session.clear()
+                return jsonify({"authenticated": False})
+                
+        # User is authenticated
+        return jsonify({
+            "authenticated": True,
+            "athlete": session.get("athlete")
+        })
     else:
-        return jsonify({"error": "Failed to exchange code", "details": token_data}), 400
+        return jsonify({"authenticated": False})
 
 @app.route("/activities", methods=["GET"])
 def get_activities():
@@ -264,7 +312,23 @@ def log_response_headers(response):
     """Log response headers for debugging."""
     return response
 
-# ---------------- END ROUTES -----------------
+@app.context_processor
+def inject_env_variables():
+    return {
+        "BASE_URL": BASE_URL,
+        "FRONTEND_URL": FRONTEND_URL,
+        "ENVIRONMENT": os.getenv("ENVIRONMENT", "development")
+    }
+
+# ---------------- END ROUTES ----------------
+
+# Environment configuration
+if os.getenv("ENVIRONMENT") == "production":
+    BASE_URL = "https://strim-production.up.railway.app"
+    FRONTEND_URL = "https://strimrun.vercel.app"
+else:
+    BASE_URL = "http://localhost:8080"
+    FRONTEND_URL = "http://localhost:3000"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
