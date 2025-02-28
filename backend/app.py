@@ -9,7 +9,8 @@ import redis
 import time
 import os
 
-from . import api_utils, trimmer
+import api_utils
+import trimmer
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -58,7 +59,7 @@ app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
 app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
-app.config["SESSION_REDIS"] = os.getenv(REDIS_URL)
+app.config["SESSION_REDIS"] = os.getenv("REDIS_URL")
 
 # Environment configuration
 if os.getenv("ENVIRONMENT") == "production":
