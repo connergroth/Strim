@@ -1,14 +1,6 @@
-// Import configuration
-import config from '/static/js/config.js';
-
-// Get the backend URL based on environment
-const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:8080"  // Local development backend URL
-  : "https://strim-production.up.railway.app";  // Production backend URL
-
-const APP_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:3000"  // Local development frontend URL
-  : "https://strimrun.vercel.app";  // Production frontend URL
+// Production-only script with hardcoded URLs
+const BACKEND_URL = "https://strim-production.up.railway.app";
+const FRONTEND_URL = "https://strimrun.vercel.app";
 
 /**
  * Show a message to the user
@@ -17,7 +9,8 @@ function showMessage(text, type = "info") {
     const message = document.getElementById("message");
     if (message) {
         message.innerText = text;
-        message.className = type; // Reset classes
+        // Reset classes
+        message.className = "";
         message.classList.add(type);
     }
 }
@@ -100,29 +93,16 @@ function checkAuthStatus() {
         if (data.authenticated) {
             console.log("✅ User is authenticated");
             
-            // If we're on the main page, show the activity section
-            if (window.location.pathname === "/" || 
-                window.location.pathname === "/index.html") {
-                document.getElementById("authSection").classList.add("hidden");
-                document.getElementById("activitySection").classList.remove("hidden");
-                fetchActivities();
-            }
+            // Show the activity section
+            document.getElementById("authSection").classList.add("hidden");
+            document.getElementById("activitySection").classList.remove("hidden");
+            fetchActivities();
         } else {
             console.log(`❌ User is NOT authenticated: ${data.reason || 'unknown reason'}`);
             
-            // If not on index page, redirect to login
-            if (window.location.pathname !== "/index.html" && 
-                window.location.pathname !== "/") {
-                window.location.href = "/index.html";
-            }
-            
-            // Ensure auth section is visible on index page
-            if (document.getElementById("authSection")) {
-                document.getElementById("authSection").classList.remove("hidden");
-            }
-            if (document.getElementById("activitySection")) {
-                document.getElementById("activitySection").classList.add("hidden");
-            }
+            // Ensure auth section is visible
+            document.getElementById("authSection").classList.remove("hidden");
+            document.getElementById("activitySection").classList.add("hidden");
         }
     })
     .catch(error => {
@@ -132,12 +112,8 @@ function checkAuthStatus() {
         showMessage(`Error checking authentication: ${error.message}`, "error");
         
         // Show auth section as fallback
-        if (document.getElementById("authSection")) {
-            document.getElementById("authSection").classList.remove("hidden");
-        }
-        if (document.getElementById("activitySection")) {
-            document.getElementById("activitySection").classList.add("hidden");
-        }
+        document.getElementById("authSection").classList.remove("hidden");
+        document.getElementById("activitySection").classList.add("hidden");
     });
 }
 
@@ -283,7 +259,7 @@ function logout() {
     .then(() => {
         showMessage("Logged out successfully", "success");
         setTimeout(() => {
-            // Redirect to login page
+            // Show login page
             document.getElementById("authSection").classList.remove("hidden");
             document.getElementById("activitySection").classList.add("hidden");
         }, 1000);
@@ -304,7 +280,6 @@ function logout() {
 document.addEventListener("DOMContentLoaded", function () {
     console.log("Document loaded, initializing app...");
     console.log(`Backend URL: ${BACKEND_URL}`);
-    console.log(`Frontend URL: ${APP_URL}`);
     
     // Add message styles if not already in CSS
     if (!document.querySelector('style#message-styles')) {
@@ -343,11 +318,6 @@ document.addEventListener("DOMContentLoaded", function () {
         stravaAuthLink.href = `${BACKEND_URL}/auth`;
         console.log(`Set auth link to: ${stravaAuthLink.href}`);
     }
-    
-    // Make functions globally available for HTML onclick handlers
-    window.toggleDistanceInput = toggleDistanceInput;
-    window.downloadAndProcessActivity = downloadAndProcessActivity;
-    window.logout = logout;
     
     // Check auth status and load appropriate view
     checkAuthStatus();
