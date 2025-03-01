@@ -136,43 +136,33 @@ function checkAuthStatus() {
 /**
  * Fetch user's activities from Strava
  */
-// Modified fetchActivities function with proper CORS and credentials handling
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
+        const BACKEND_URL = config.getBackendURL();
 
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
-        // Debug: Log cookies being sent
-        console.log("📦 Cookies before fetch:", document.cookie);
-
-        // Make the request with proper credentials and mode
         const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
-            credentials: "include",  // Critical for sending cookies cross-domain
-            mode: "cors",            // Explicitly set CORS mode
+            credentials: "include",  // Ensures cookies are sent
             headers: {
-                "Accept": "application/json"
+                "Content-Type": "application/json",
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
             }
         });
 
-        console.log("📡 Response status:", response.status);
-        console.log("📡 Response headers:", [...response.headers.entries()]);
-
         if (!response.ok) {
-            console.error(`❌ Error fetching activities: ${response.status}`);
+            console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
 
             if (response.status === 401) {
-                console.log("Session expired or not authenticated, showing login prompt");
-                showMessage("Authentication required. Please log in with Strava.", "error");
-                
-                // Clear any lingering session data
-                document.getElementById("authSection").classList.remove("hidden");
-                document.getElementById("activitySection").classList.add("hidden");
+                console.log("Session expired, showing login prompt");
+                alert("Session expired. Please log in again.");
+                window.location.href = "/index.html";  // Redirect to login
             } else {
                 document.getElementById("activityList").innerHTML = 
-                    `<tr><td colspan='4'>Error loading activities: ${response.status}</td></tr>`;
+                    `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
             }
             return;
         }
@@ -182,7 +172,7 @@ async function fetchActivities() {
 
         if (!data.activities || data.activities.length === 0) {
             document.getElementById("activityList").innerHTML = 
-                "<tr><td colspan='4'>No activities found. Make sure you have running activities on Strava.</td></tr>";
+                "<tr><td colspan='4'>No activities found. Make sure you have activities on Strava.</td></tr>";
             return;
         }
 
@@ -204,11 +194,16 @@ async function fetchActivities() {
         console.error("❌ Network error fetching activities:", error);
         document.getElementById("activityList").innerHTML = 
             `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
-        
-        if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
-            showMessage("Unable to connect to the server. This may be a CORS issue or server configuration problem.", "error");
-        }
+        alert("Failed to load activities. Please try again.");
     }
+}
+
+/**
+ * Toggle distance input visibility based on checkbox
+ */
+function toggleDistanceInput() {
+    const editDistanceChecked = document.getElementById("editDistanceCheckbox").checked;
+    document.getElementById("distanceInputContainer").style.display = editDistanceChecked ? "block" : "none";
 }
 
 /**
