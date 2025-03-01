@@ -7,35 +7,24 @@
 </head>
 <body>
     <h2>Authenticating with Strava...</h2>
+    <p>Please wait while we process your authentication...</p>
+    
     <script>
-        async function handleStravaOAuth() {
+        document.addEventListener("DOMContentLoaded", function() {
+            // Get the OAuth code from URL
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get("code");
-
+            
             if (code) {
-                console.log("Received OAuth code:", code);
-
-                const response = await fetch("https://strim-production.up.railway.app/auth/callback", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code })
-                });
-
-                const data = await response.json();
-                if (data.access_token) {
-                    console.log("Authenticated:", data);
-                    localStorage.setItem("strava_token", data.access_token);
-                    window.location.href = "/index.html"; // Redirect after OAuth
-                } else {
-                    console.error("OAuth failed", data);
-                    window.location.href = "/";
-                }
+                console.log("OAuth code detected in URL, redirecting to backend callback...");
+                
+                const backendURL = config.getBackendURL();
+                window.location.href = `${backendURL}/auth/callback?code=${code}`;
             } else {
-                console.error("No auth code found");
-                window.location.href = "/";
+                console.error("No authorization code found in URL");
+                window.location.href = "/"; // Redirect to home if no code
             }
-        }
-        handleStravaOAuth();
+        });
     </script>
 </body>
 </html>

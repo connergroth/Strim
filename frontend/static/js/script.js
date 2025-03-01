@@ -9,13 +9,27 @@ const BACKEND_URL = window.location.hostname === "localhost" || window.location.
 function checkAuthStatus() {
     console.log("Checking authentication status...");
     
+    // Use config.js to get the backend URL
+    const BACKEND_URL = config.getBackendURL();
+    console.log(`Using backend URL: ${BACKEND_URL}`);
+    
     fetch(`${BACKEND_URL}/api/session-status`, {
         method: "GET",
-        credentials: "include"  // Send cookies with request
+        credentials: "include",  // Crucial for sending cookies with request
+        headers: {
+            // Add a cache-busting parameter to avoid cached responses
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`Auth status response code: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
-        console.log("Auth status response:", data);
+        console.log("Auth status response data:", data);
         if (data.authenticated) {
             console.log("✅ User is authenticated");
             
@@ -26,8 +40,14 @@ function checkAuthStatus() {
                 document.getElementById("activitySection").classList.remove("hidden");
                 fetchActivities();
             }
+            
+            // Add visual indicator that user is logged in
+            document.querySelector('.footer').insertAdjacentHTML(
+                'beforeend', 
+                `<div class="auth-status">Logged in as: ${data.athlete?.firstname || 'Athlete'}</div>`
+            );
         } else {
-            console.log("❌ User is NOT authenticated");
+            console.log(`❌ User is NOT authenticated: ${data.reason || 'Unknown reason'}`);
             
             // If not on index page, redirect to login
             if (window.location.pathname !== "/index.html" && 
@@ -46,6 +66,12 @@ function checkAuthStatus() {
     })
     .catch(error => {
         console.error("Error checking auth status:", error);
+        
+        // Show error message to user
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'error-message';
+        errorMsg.textContent = `Authentication error: ${error.message}. Please try refreshing the page.`;
+        document.body.prepend(errorMsg);
     });
 }
 
@@ -55,12 +81,17 @@ function checkAuthStatus() {
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
+        const BACKEND_URL = config.getBackendURL();
+
+        // Show loading indicator
+        document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
         const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
             credentials: "include",  // Ensures cookies are sent
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
             }
         });
 
@@ -68,8 +99,12 @@ async function fetchActivities() {
             console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
 
             if (response.status === 401) {
+                console.log("Session expired, showing login prompt");
                 alert("Session expired. Please log in again.");
                 window.location.href = "/index.html";  // Redirect to login
+            } else {
+                document.getElementById("activityList").innerHTML = 
+                    `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
             }
             return;
         }
@@ -78,7 +113,8 @@ async function fetchActivities() {
         console.log("✅ Fetched activities:", data);
 
         if (!data.activities || data.activities.length === 0) {
-            document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>No activities found</td></tr>";
+            document.getElementById("activityList").innerHTML = 
+                "<tr><td colspan='4'>No activities found. Make sure you have activities on Strava.</td></tr>";
             return;
         }
 
@@ -98,6 +134,8 @@ async function fetchActivities() {
 
     } catch (error) {
         console.error("❌ Network error fetching activities:", error);
+        document.getElementById("activityList").innerHTML = 
+            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         alert("Failed to load activities. Please try again.");
     }
 }
