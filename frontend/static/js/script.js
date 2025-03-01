@@ -136,6 +136,7 @@ function checkAuthStatus() {
 /**
  * Fetch user's activities from Strava
  */
+// Modified fetchActivities function with proper CORS and credentials handling
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
@@ -143,28 +144,35 @@ async function fetchActivities() {
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
-        // Modified fetch call - removing problematic headers
+        // Debug: Log cookies being sent
+        console.log("📦 Cookies before fetch:", document.cookie);
+
+        // Make the request with proper credentials and mode
         const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
-            credentials: "include"  // Ensures cookies are sent
-            // Removed problematic headers
+            credentials: "include",  // Critical for sending cookies cross-domain
+            mode: "cors",            // Explicitly set CORS mode
+            headers: {
+                "Accept": "application/json"
+            }
         });
 
+        console.log("📡 Response status:", response.status);
+        console.log("📡 Response headers:", [...response.headers.entries()]);
+
         if (!response.ok) {
-            console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
+            console.error(`❌ Error fetching activities: ${response.status}`);
 
             if (response.status === 401) {
-                console.log("Session expired, showing login prompt");
-                showMessage("Session expired. Please log in again.", "error");
+                console.log("Session expired or not authenticated, showing login prompt");
+                showMessage("Authentication required. Please log in with Strava.", "error");
                 
-                // Wait a moment before redirecting
-                setTimeout(() => {
-                    document.getElementById("authSection").classList.remove("hidden");
-                    document.getElementById("activitySection").classList.add("hidden");
-                }, 2000);
+                // Clear any lingering session data
+                document.getElementById("authSection").classList.remove("hidden");
+                document.getElementById("activitySection").classList.add("hidden");
             } else {
                 document.getElementById("activityList").innerHTML = 
-                    `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
+                    `<tr><td colspan='4'>Error loading activities: ${response.status}</td></tr>`;
             }
             return;
         }
@@ -197,12 +205,8 @@ async function fetchActivities() {
         document.getElementById("activityList").innerHTML = 
             `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         
-        // Add more helpful message for CORS errors
         if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
-            document.getElementById("activityList").innerHTML = 
-                `<tr><td colspan='4'>CORS error: The server is not accessible from this domain. Please check server configuration.</td></tr>`;
-            
-            showMessage("CORS error: Unable to connect to the server. This may be a temporary issue or a server configuration problem.", "error");
+            showMessage("Unable to connect to the server. This may be a CORS issue or server configuration problem.", "error");
         }
     }
 }
