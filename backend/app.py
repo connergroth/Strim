@@ -3,7 +3,6 @@ from flask_session import Session
 from flask_cors import CORS
 from flask_talisman import Talisman
 from datetime import timedelta
-from redis.exceptions import RedisError
 import redis
 import requests
 import traceback
@@ -23,12 +22,65 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(
     __name__, 
     template_folder=os.path.join(FRONTEND_DIR, "templates"),  
     static_folder=os.path.join(FRONTEND_DIR, "static"),
     static_url_path="/static" 
 )
+
+# Environment configuration
+if os.getenv("ENVIRONMENT") == "production":
+    BASE_URL = "https://strim-production.up.railway.app"
+    FRONTEND_URL = "https://strimrun.vercel.app"
+else:
+    BASE_URL = "http://localhost:8080"
+    FRONTEND_URL = "http://localhost:3000"
+
+# Redis configuration
+REDIS_URL = os.getenv("REDIS_URL")
+if not REDIS_URL:
+    logger.warning("REDIS_URL not found in environment variables. Using default.")
+    REDIS_URL = "redis://localhost:6379/0"
+
+# Try to establish Redis connection
+try:
+    redis_client = redis.from_url(REDIS_URL)
+    redis_client.ping()
+    logger.info("✅ Redis connection successful")
+except (redis.exceptions.ConnectionError, redis.exceptions.RedisError) as e:
+    logger.error(f"❌ Redis connection error: {str(e)}")
+    if os.getenv("ENVIRONMENT") == "production":
+        logger.error("Exiting application due to Redis connection failure in production")
+        sys.exit(1)
+    else:
+        # Fall back to filesystem session in development
+        logger.warning("Falling back to filesystem session for development")
+        app.config["SESSION_TYPE"] = "filesystem"
+
+# Flask session configuration
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+app.config["SESSION_TYPE"] = "redis" if REDIS_URL and 'redis_client' in locals() else "filesystem"
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+app.config["SESSION_USE_SIGNER"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("ENVIRONMENT") == "production"
+app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
+
+# Only set redis connection if using redis sessions and connection was successful
+if app.config["SESSION_TYPE"] == "redis" and 'redis_client' in locals():
+    app.config["SESSION_REDIS"] = redis_client
+
+# Initialize Flask-Session
+Session(app)
 
 # CORS Configuration
 CORS(app, 
@@ -40,13 +92,9 @@ CORS(app,
         "http://127.0.0.1:8080",
         "http://localhost:8080"
     ],
-    # Explicitly list allowed headers
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-    # Explicitly list allowed methods 
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    # Expose headers that might be useful for the frontend
     expose_headers=["Content-Type", "X-CSRFToken"],
-    # Set maximum age for preflight requests
     max_age=600
 )  
 
@@ -59,54 +107,9 @@ Talisman(app, content_security_policy={
     'report-uri': "/csp-report"  
 })
 
-# Environment configuration
-BASE_URL = "https://strim-production.up.railway.app"
-FRONTEND_URL = "https://strimrun.vercel.app"
-REDIS_URL = os.getenv("REDIS_URL")
-
-# Flask session configuration
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "redis"  
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
-app.config["SESSION_USE_SIGNER"] = True  
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_DOMAIN"] = None
-app.config["SESSION_COOKIE_SECURE"] = True 
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
-
-Session(app)
-
 UPLOAD_FOLDER = "uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# ---------------- VALIDATION ----------------
-
-def validate_redis_connection():
-    """Validate Redis connection at startup"""
-    try:
-        if app.config.get('SESSION_TYPE') == 'redis':
-            # Try to access the Redis instance used by Flask-Session
-            session_interface = app.session_interface
-            redis_client = session_interface.redis
-            if redis_client.ping():
-                app.logger.info("✅ Redis connection successful")
-                return True
-            else:
-                app.logger.error("❌ Redis connection failed - no response to ping")
-                return False
-    except (RedisError, AttributeError) as e:
-        app.logger.error(f"❌ Redis connection error: {str(e)}")
-        return False
-
-if not validate_redis_connection():
-    app.logger.error("Redis connection failed. Session persistence will not work correctly!")
-    if os.getenv("ENVIRONMENT") == "production":
-        app.logger.error("Exiting application due to Redis connection failure in production")
-        sys.exit(1)
-
 
 # ---------------- ROUTES ----------------
 
@@ -132,12 +135,11 @@ def strava_auth():
 
 @app.route("/auth/callback", methods=["GET"])
 def strava_callback():
-    """Handle Strava OAuth callback and store the session, then redirect to frontend."""
+    """Handle Strava OAuth callback and store the session."""
     code = request.args.get("code")
     
     if not code:
         app.logger.error("Missing authorization code in callback")
-        # Redirect to frontend with error parameter
         return redirect(f"{FRONTEND_URL}?auth_error=missing_code")
 
     token_url = "https://www.strava.com/oauth/token"
@@ -165,17 +167,15 @@ def strava_callback():
             session["expires_at"] = token_data.get("expires_at")
             session["athlete"] = token_data.get("athlete")
             session.permanent = True
+            
+            # Force save session
             session.modified = True
-
-            app.logger.info(f"✅ Session created and stored")
             
-            # For cross-site cookies to work, we need these settings
-            # They should be defined in app config, but we'll ensure they're applied correctly here
+            app.logger.info(f"✅ Session created and stored. Session ID: {request.cookies.get('session', 'unknown')}")
+            
+            # Redirect to frontend
             resp = redirect(f"{FRONTEND_URL}?auth_success=true")
-            
-            # Log the redirect URL for debugging
             app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
-            
             return resp
         else:
             app.logger.error(f"Failed to get access token: {token_data}")
@@ -186,7 +186,7 @@ def strava_callback():
 
 @app.route("/api/session-status")
 def session_status():
-    """Check if user is authenticated and return status with enhanced debugging."""
+    """Check if user is authenticated and return status."""
     app.logger.info(f"📝 Session data: {dict(session)}")
     app.logger.info(f"🍪 Request cookies: {request.cookies}")
     

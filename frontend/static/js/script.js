@@ -1,7 +1,26 @@
-// Update the BACKEND_URL to be environment-aware
+// Import configuration
+import config from '/static/js/config.js';
+
+// Get the backend URL based on environment
 const BACKEND_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
   ? "http://localhost:8080"  // Local development backend URL
   : "https://strim-production.up.railway.app";  // Production backend URL
+
+const APP_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:3000"  // Local development frontend URL
+  : "https://strimrun.vercel.app";  // Production frontend URL
+
+/**
+ * Show a message to the user
+ */
+function showMessage(text, type = "info") {
+    const message = document.getElementById("message");
+    if (message) {
+        message.innerText = text;
+        message.className = type; // Reset classes
+        message.classList.add(type);
+    }
+}
 
 /**
  * Check if user is authenticated and redirect if needed
@@ -28,11 +47,7 @@ function checkAuthStatus() {
         }
         
         // Display error message to user
-        const message = document.getElementById("message");
-        if (message) {
-            message.innerText = `Authentication failed: ${authError}. Please try again.`;
-            message.classList.add("error");
-        }
+        showMessage(`Authentication failed: ${authError}. Please try again.`, "error");
         
         // Ensure auth section is visible on index page
         if (document.getElementById("authSection")) {
@@ -45,21 +60,14 @@ function checkAuthStatus() {
     }
     
     // If auth_success=true is in URL, we just completed authentication
-    if (authSuccess) {
+    if (authSuccess === "true") {
         console.log("✅ Authentication successful from redirect");
         
         // Show a success message briefly
-        const message = document.getElementById("message");
-        if (message) {
-            message.innerText = "Successfully authenticated with Strava!";
-            message.classList.add("success");
-            
-            // Clear message after 3 seconds
-            setTimeout(() => {
-                message.innerText = "";
-                message.classList.remove("success");
-            }, 3000);
-        }
+        showMessage("Successfully authenticated with Strava!", "success");
+        setTimeout(() => {
+            showMessage("");
+        }, 3000);
         
         // No need to check session here as we know we just authenticated
         if (document.getElementById("authSection")) {
@@ -75,7 +83,10 @@ function checkAuthStatus() {
     // If no auth parameters, check session status from backend
     fetch(`${BACKEND_URL}/api/session-status`, {
         method: "GET",
-        credentials: "include"  // Send cookies with request
+        credentials: "include",  // Send cookies with request
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
     })
     .then(response => {
         console.log(`Auth status response code: ${response.status}`);
@@ -97,7 +108,7 @@ function checkAuthStatus() {
                 fetchActivities();
             }
         } else {
-            console.log("❌ User is NOT authenticated");
+            console.log(`❌ User is NOT authenticated: ${data.reason || 'unknown reason'}`);
             
             // If not on index page, redirect to login
             if (window.location.pathname !== "/index.html" && 
@@ -118,10 +129,14 @@ function checkAuthStatus() {
         console.error("Error checking auth status:", error);
         
         // Show error message to user
-        const message = document.getElementById("message");
-        if (message) {
-            message.innerText = `Error checking authentication: ${error.message}`;
-            message.classList.add("error");
+        showMessage(`Error checking authentication: ${error.message}`, "error");
+        
+        // Show auth section as fallback
+        if (document.getElementById("authSection")) {
+            document.getElementById("authSection").classList.remove("hidden");
+        }
+        if (document.getElementById("activitySection")) {
+            document.getElementById("activitySection").classList.add("hidden");
         }
     });
 }
@@ -132,7 +147,6 @@ function checkAuthStatus() {
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
-        const BACKEND_URL = config.getBackendURL();
 
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
@@ -151,8 +165,13 @@ async function fetchActivities() {
 
             if (response.status === 401) {
                 console.log("Session expired, showing login prompt");
-                alert("Session expired. Please log in again.");
-                window.location.href = "/index.html";  // Redirect to login
+                showMessage("Session expired. Please log in again.", "error");
+                
+                // Wait a moment before redirecting
+                setTimeout(() => {
+                    document.getElementById("authSection").classList.remove("hidden");
+                    document.getElementById("activitySection").classList.add("hidden");
+                }, 2000);
             } else {
                 document.getElementById("activityList").innerHTML = 
                     `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
@@ -165,7 +184,7 @@ async function fetchActivities() {
 
         if (!data.activities || data.activities.length === 0) {
             document.getElementById("activityList").innerHTML = 
-                "<tr><td colspan='4'>No activities found. Make sure you have activities on Strava.</td></tr>";
+                "<tr><td colspan='4'>No activities found. Make sure you have running activities on Strava.</td></tr>";
             return;
         }
 
@@ -187,7 +206,6 @@ async function fetchActivities() {
         console.error("❌ Network error fetching activities:", error);
         document.getElementById("activityList").innerHTML = 
             `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
-        alert("Failed to load activities. Please try again.");
     }
 }
 
@@ -219,7 +237,7 @@ async function downloadAndProcessActivity() {
     }
 
     try {
-        document.getElementById("message").innerText = "Downloading and processing activity...";
+        showMessage("Downloading and processing activity...", "info");
 
         // Ensure newDistance is properly encoded
         const encodedDistance = newDistance ? encodeURIComponent(newDistance) : "";
@@ -238,15 +256,16 @@ async function downloadAndProcessActivity() {
         const result = await response.json();
 
         if (result.success) {
-            document.getElementById("message").innerText = "Upload complete! Redirecting to Strava...";
-            window.location.href = `https://www.strava.com/activities/${result.new_activity_id}`;
+            showMessage("Upload complete! Redirecting to Strava...", "success");
+            setTimeout(() => {
+                window.location.href = `https://www.strava.com/activities/${result.new_activity_id}`;
+            }, 1000);
         } else {
-            alert("Error: " + result.error);
+            throw new Error(result.error || "Unknown error occurred");
         }
     } catch (error) {
         console.error("Error processing activity:", error);
-        document.getElementById("message").innerText = "";
-        alert("An error occurred while processing the activity: " + error.message);
+        showMessage(`Error: ${error.message}`, "error");
     }
 }
 
@@ -255,18 +274,27 @@ async function downloadAndProcessActivity() {
  */
 function logout() {
     console.log("🔴 Logging out...");
+    showMessage("Logging out...", "info");
     
     fetch(`${BACKEND_URL}/logout`, {
         method: "POST",
         credentials: "include" // Send cookies
     })
     .then(() => {
-        // Redirect to login page
-        window.location.href = "/index.html";
+        showMessage("Logged out successfully", "success");
+        setTimeout(() => {
+            // Redirect to login page
+            document.getElementById("authSection").classList.remove("hidden");
+            document.getElementById("activitySection").classList.add("hidden");
+        }, 1000);
     })
     .catch(error => {
         console.error("Error logging out:", error);
-        window.location.href = "/index.html";
+        showMessage("Error logging out", "error");
+        setTimeout(() => {
+            document.getElementById("authSection").classList.remove("hidden");
+            document.getElementById("activitySection").classList.add("hidden");
+        }, 1000);
     });
 }
 
@@ -278,6 +306,37 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log(`Backend URL: ${BACKEND_URL}`);
     console.log(`Frontend URL: ${APP_URL}`);
     
+    // Add message styles if not already in CSS
+    if (!document.querySelector('style#message-styles')) {
+        const style = document.createElement('style');
+        style.id = 'message-styles';
+        style.textContent = `
+            #message {
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                font-weight: 500;
+                min-height: 24px;
+            }
+            #message.error {
+                background-color: #ffecec;
+                color: #d63301;
+                border-left: 4px solid #d63301;
+            }
+            #message.success {
+                background-color: #dff2de;
+                color: #257825;
+                border-left: 4px solid #257825;
+            }
+            #message.info {
+                background-color: #e0f1ff;
+                color: #0055aa;
+                border-left: 4px solid #0055aa;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
     // Configure Strava auth link
     const stravaAuthLink = document.getElementById("stravaAuthLink");
     if (stravaAuthLink) {
@@ -285,12 +344,10 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log(`Set auth link to: ${stravaAuthLink.href}`);
     }
     
-    // Add message element if it doesn't exist
-    if (!document.getElementById("message")) {
-        const messageDiv = document.createElement("div");
-        messageDiv.id = "message";
-        document.body.insertBefore(messageDiv, document.body.firstChild);
-    }
+    // Make functions globally available for HTML onclick handlers
+    window.toggleDistanceInput = toggleDistanceInput;
+    window.downloadAndProcessActivity = downloadAndProcessActivity;
+    window.logout = logout;
     
     // Check auth status and load appropriate view
     checkAuthStatus();
