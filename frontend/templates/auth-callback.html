@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <script src="/static/js/config.js"></script>
     <title>Authenticating...</title>
 </head>
 <body>
     <h2>Authenticating with Strava...</h2>
     <p>Please wait while we process your authentication...</p>
     
-    <script>
+    <script type="module">
+        import config from '/static/js/config.js';
+        
         document.addEventListener("DOMContentLoaded", function() {
             // Get the OAuth code from URL
             const urlParams = new URLSearchParams(window.location.search);

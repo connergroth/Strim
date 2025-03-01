@@ -68,15 +68,13 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Critical for cross-domain cookies
+app.config["SESSION_COOKIE_DOMAIN"] = None  # Allow cookies to be set on any domain
 app.config["SESSION_REDIS"] = redis_client
 
-# Initialize Flask-Session
-Session(app)
-
-# CORS Configuration - production only
+# And ensure your CORS configuration includes 'credentials' support
 CORS(app, 
-    supports_credentials=True,  
+    supports_credentials=True,
     origins=[
         "https://strimrun.vercel.app",
         "https://strim-conner-groths-projects.vercel.app"
@@ -85,7 +83,7 @@ CORS(app,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     expose_headers=["Content-Type", "X-CSRFToken"],
     max_age=600
-)  
+)
 
 # Security Headers
 Talisman(app, content_security_policy={
