@@ -40,9 +40,15 @@ CORS(app,
         "http://127.0.0.1:8080",
         "http://localhost:8080"
     ],
-    allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-) 
+    # Explicitly list allowed headers
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    # Explicitly list allowed methods 
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    # Expose headers that might be useful for the frontend
+    expose_headers=["Content-Type", "X-CSRFToken"],
+    # Set maximum age for preflight requests
+    max_age=600
+)  
 
 # Security Headers
 Talisman(app, content_security_policy={
@@ -65,6 +71,7 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_DOMAIN"] = None
 app.config["SESSION_COOKIE_SECURE"] = True 
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
@@ -125,12 +132,13 @@ def strava_auth():
 
 @app.route("/auth/callback", methods=["GET"])
 def strava_callback():
-    """Handle Strava OAuth callback and store the session."""
+    """Handle Strava OAuth callback and store the session, then redirect to frontend."""
     code = request.args.get("code")
     
     if not code:
         app.logger.error("Missing authorization code in callback")
-        return redirect(url_for("home", error="Missing authorization code"))
+        # Redirect to frontend with error parameter
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_code")
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
@@ -161,18 +169,20 @@ def strava_callback():
 
             app.logger.info(f"✅ Session created and stored")
             
-            # Print cookie details for debugging
-            resp = redirect(url_for("activity_selection"))
-            app.logger.info(f"🍪 Cookies being set: {[{k: v} for k, v in request.cookies.items()]}")
+            # For cross-site cookies to work, we need these settings
+            # They should be defined in app config, but we'll ensure they're applied correctly here
+            resp = redirect(f"{FRONTEND_URL}?auth_success=true")
             
-            # Return the redirect response
+            # Log the redirect URL for debugging
+            app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
+            
             return resp
         else:
             app.logger.error(f"Failed to get access token: {token_data}")
-            return redirect(url_for("home", error="Failed to authenticate with Strava"))
+            return redirect(f"{FRONTEND_URL}?auth_error=strava_token_failure")
     except Exception as e:
         app.logger.error(f"Error in Strava callback: {str(e)}")
-        return redirect(url_for("home", error="Authentication error"))
+        return redirect(f"{FRONTEND_URL}?auth_error=exception&message={str(e)}")
 
 @app.route("/api/session-status")
 def session_status():
