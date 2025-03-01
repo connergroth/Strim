@@ -4,41 +4,49 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100vh;
+    justify-content: flex-start;
+    min-height: 100vh;
     background-color: #f5f5f5;
     color: #FC4C02;
     padding: 20px;
     text-align: center;
+    margin: 0;
+    overflow-y: auto;
 }
 
 html, body {
-    overflow: hidden;
     height: 100%;
 }
 
 h2 {
     font-weight: 700;
     letter-spacing: 1px;
+    margin-top: 0;
 }
 
 /* Container Styles */
 .container {
-    background: #FC4C02;
+    background: #ffffff;
     padding: 25px;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    color: white;
-    max-width: 400px;
+    color: #333;
+    max-width: 800px;
     width: 100%;
+    margin-bottom: 20px;
+    border-top: 5px solid #FC4C02;
+}
+
+.container h2 {
+    color: #FC4C02;
     margin-bottom: 20px;
 }
 
 /* Button Styles */
 button {
     padding: 14px 22px;
-    background-color: white;
-    color: #FC4C02;
+    background-color: #FC4C02;
+    color: white;
     font-weight: bold;
     border: none;
     border-radius: 8px;
@@ -53,8 +61,7 @@ button {
 
 button:hover {
     background-color: #FF6A33;
-    color: white;
-    transform: scale(1.05);
+    transform: scale(1.02);
 }
 
 /* Strava Login Button Styles */
@@ -73,6 +80,7 @@ button:hover {
 .logo {
     width: 150px; 
     margin-bottom: 20px;
+    margin-top: 20px;
 }
 
 /* Steps Section Styles */
@@ -86,8 +94,30 @@ button:hover {
     background: white;
     border-radius: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-width: 450px;
+    max-width: 800px;
+    width: 100%;
     text-align: left;
+}
+
+.step {
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    display: flex;
+    align-items: center;
+}
+
+.step-number {
+    background-color: #FC4C02;
+    color: white;
+    width: 25px;
+    height: 25px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-right: 10px;
+    font-weight: bold;
 }
 
 /* Footer Styles */
@@ -96,7 +126,7 @@ button:hover {
     align-items: center;
     flex-direction: column;
     justify-content: center;
-    margin: 40px auto;
+    margin: 40px auto 20px;
     padding: 12px 20px;
     background-color: #f9f9f9;
     border-radius: 10px;
@@ -119,6 +149,7 @@ button:hover {
     height: 30px;
     vertical-align: middle;
     opacity: 0.8;
+    margin-top: 8px;
 }
 
 .strava-logo:hover {
@@ -139,11 +170,13 @@ table {
     border-radius: 10px;
     overflow: hidden;
     margin-top: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 th, td {
     padding: 12px;
-    text-align: center;
+    text-align: left;
 }
 
 th {
@@ -164,53 +197,143 @@ td input[type="radio"] {
     transform: scale(1.2);
 }
 
-/* Error Messages */
+/* Activity Section Specific Styles */
+#activitySection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.activity-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 15px;
+    width: 100%;
+    max-width: 500px;
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.activity-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.activity-option label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.activity-option input[type="checkbox"] {
+    margin-right: 8px;
+    transform: scale(1.2);
+}
+
+#distanceInputContainer {
+    margin-top: 10px;
+    padding: 15px;
+    background-color: white;
+    border-radius: 5px;
+    border-left: 3px solid #FC4C02;
+}
+
+#distanceInputContainer label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+#newDistance {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 200px;
+}
 
 #message {
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 4px;
-    text-align: center;
-    min-height: 20px;
+    margin: 15px 0;
+    color: #333;
+    font-weight: 500;
+    min-height: 24px;
 }
 
-#message.error {
-    background-color: #ffebee;
-    color: #c62828;
-    border: 1px solid #ef9a9a;
+.action-buttons {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 10px;
 }
 
-#message.success {
-    background-color: #e8f5e9;
-    color: #2e7d32;
-    border: 1px solid #a5d6a7;
+.action-buttons button {
+    max-width: 200px;
 }
 
-/* Environment indicator - helps with debugging */
-.environment-indicator {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    padding: 5px 10px;
-    font-size: 12px;
-    color: white;
-    z-index: 9999;
+.action-buttons button:last-child {
+    background-color: #f4f4f4;
+    color: #333;
 }
 
-.environment-indicator.production {
-    background-color: #d32f2f; /* Red for production */
+.action-buttons button:last-child:hover {
+    background-color: #e0e0e0;
 }
 
-.environment-indicator.development {
-    background-color: #388e3c; /* Green for development */
+#logoutButton {
+    background-color: transparent;
+    color: #888;
+    border: 1px solid #ddd;
+    padding: 10px 15px;
+    margin-top: 0;
+    max-width: 150px;
+    font-size: 14px;
 }
 
-/* Auth status indicator */
-.auth-status {
-    display: inline-block;
-    margin-left: 15px;
-    padding: 3px 8px;
-    background-color: #e3f2fd;
-    border-radius: 4px;
-    font-size: 0.8em;
+#logoutButton:hover {
+    background-color: #f1f1f1;
+    color: #555;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.header-container h2 {
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    table {
+        font-size: 14px;
+    }
+    
+    th, td {
+        padding: 8px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .action-buttons button {
+        max-width: 100%;
+    }
+    
+    .header-container {
+        flex-direction: column;
+        gap: 10px;
+    }
 }
