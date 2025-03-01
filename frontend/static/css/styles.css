@@ -256,10 +256,46 @@ td input[type="radio"] {
 }
 
 #message {
-    margin: 15px 0;
-    color: #333;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
     font-weight: 500;
     min-height: 24px;
+    position: relative; /* Add position relative */
+    display: block; /* Ensure it's a block element */
+    overflow: hidden; /* Hide any overflowing content */
+}
+
+#message:empty {
+    display: none; /* Hide completely when empty */
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+    border: none;
+}
+
+#message.error {
+    background-color: #ffecec;
+    color: #d63301;
+    border-left: 4px solid #d63301;
+}
+
+#message.success {
+    background-color: #dff2de;
+    color: #257825;
+    border-left: 4px solid #257825;
+}
+
+#message.info {
+    background-color: #e0f1ff;
+    color: #0055aa;
+    border-left: 4px solid #0055aa;
+}
+
+/* This ensures there's no unwanted elements or pseudo-elements visible */
+#message::before, #message::after {
+    display: none;
+    content: none;
 }
 
 .action-buttons {
