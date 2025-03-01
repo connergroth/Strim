@@ -62,8 +62,8 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
-app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True 
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
 
 Session(app)
