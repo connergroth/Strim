@@ -227,27 +227,50 @@ def session_status():
 @app.route("/activities", methods=["GET"])
 def get_activities():
     """Retrieve user activities from Strava API."""
+    app.logger.info(f"📝 Request to /activities - Session data: {dict(session)}")
+    app.logger.info(f"🍪 Request cookies: {request.cookies}")
+    
     if "strava_token" not in session:
-        return jsonify({"error": "Unauthorized. No valid session token."}), 401
+        # Check if token is in Authorization header (fallback mechanism)
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            app.logger.info("Using token from Authorization header")
+        else:
+            app.logger.info("❌ No token in session or header")
+            return jsonify({"error": "Unauthorized. No valid session token."}), 401
+    else:
+        # Get token from session
+        token = session["strava_token"]
+        app.logger.info("✅ Using token from session")
 
-    access_token = session["strava_token"]
+    # Get activities from Strava
     url = "https://www.strava.com/api/v3/athlete/activities"
-    headers = {"Authorization": f"Bearer {access_token}"}
+    headers = {"Authorization": f"Bearer {token}"}
 
+    app.logger.info(f"📡 Sending request to Strava API")
     response = requests.get(url, headers=headers)
+    
     if response.status_code != 200:
-        return jsonify({"error": "Failed to fetch activities"}), 500
+        app.logger.error(f"❌ Strava API error: {response.status_code}")
+        return jsonify({"error": "Failed to fetch activities from Strava"}), response.status_code
 
     activities = response.json()
-    return jsonify({"activities": [
-        {
-            "id": act["id"],
-            "name": act["name"],
-            "distance_miles": round(act["distance"] / 1609.34, 2),
-            "date": act["start_date_local"]
-        }
-        for act in activities if act["type"] == "Run"
-    ]})
+    app.logger.info(f"✅ Received {len(activities)} activities from Strava")
+    
+    # Include the token in the response as a fallback mechanism
+    return jsonify({
+        "activities": [
+            {
+                "id": act["id"],
+                "name": act["name"],
+                "distance_miles": round(act["distance"] / 1609.34, 2),
+                "date": act["start_date_local"]
+            }
+            for act in activities if act["type"] == "Run"
+        ],
+        "token": token  # Include token in response
+    })
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
