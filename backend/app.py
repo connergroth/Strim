@@ -51,14 +51,9 @@ Talisman(app, content_security_policy={
 })
 
 # Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-    REDIS_URL = os.getenv("REDIS_URL")
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
-    REDIS_URL = os.getenv("REDIS_URL")
+BASE_URL = "https://strim-production.up.railway.app"
+FRONTEND_URL = "https://strimrun.vercel.app"
+REDIS_URL = os.getenv("REDIS_URL")
 
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
