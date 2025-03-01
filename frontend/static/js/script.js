@@ -322,3 +322,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // Check auth status and load appropriate view
     checkAuthStatus();
 });
+
+// Expose functions to global scope for use in the HTML onclick handlers
+window.toggleDistanceInput = toggleDistanceInput;
+window.downloadAndProcessActivity = downloadAndProcessActivity;
+window.logout = logout;

@@ -98,25 +98,12 @@
         <img src="/static/assets/api_logo_pwrdBy_strava_horiz_gray.png" 
              alt="Powered by Strava" class="strava-logo">
     </div>
-
-    <!-- Add global function definitions for event handlers -->
-    <script>
-        // These function declarations make the onclick handlers work
-        // The actual implementations are in script.js
-        function toggleDistanceInput() {
-            // This will be overridden by the imported script
-            console.log("toggleDistanceInput not yet loaded");
+    
+    <style>
+        /* This ensures the activity section is hidden by default */
+        #activitySection.hidden {
+            display: none !important;
         }
-        
-        function downloadAndProcessActivity() {
-            // This will be overridden by the imported script
-            console.log("downloadAndProcessActivity not yet loaded");
-        }
-        
-        function logout() {
-            // This will be overridden by the imported script
-            console.log("logout not yet loaded");
-        }
-    </script>
+    </style>
 </body>
 </html>
