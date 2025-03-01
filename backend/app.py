@@ -3,10 +3,13 @@ from flask_session import Session
 from flask_cors import CORS
 from flask_talisman import Talisman
 from datetime import timedelta
+from redis.exceptions import RedisError
+import redis
 import requests
 import traceback
-import redis
+import logging
 import time
+import sys
 import os
 
 import api_utils
@@ -37,9 +40,15 @@ CORS(app,
         "http://127.0.0.1:8080",
         "http://localhost:8080"
     ],
-    allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-) 
+    # Explicitly list allowed headers
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    # Explicitly list allowed methods 
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    # Expose headers that might be useful for the frontend
+    expose_headers=["Content-Type", "X-CSRFToken"],
+    # Set maximum age for preflight requests
+    max_age=600
+)  
 
 # Security Headers
 Talisman(app, content_security_policy={
@@ -50,6 +59,11 @@ Talisman(app, content_security_policy={
     'report-uri': "/csp-report"  
 })
 
+# Environment configuration
+BASE_URL = "https://strim-production.up.railway.app"
+FRONTEND_URL = "https://strimrun.vercel.app"
+REDIS_URL = os.getenv("REDIS_URL")
+
 # Flask session configuration
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 app.config["SESSION_TYPE"] = "redis"  
@@ -57,24 +71,42 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True  
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True if os.getenv("ENVIRONMENT") == "production" else False
-app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
-
-# Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-    REDIS_URL = os.getenv("REDIS_URL")
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
-    REDIS_URL = os.getenv("REDIS_URL")
+app.config["SESSION_COOKIE_DOMAIN"] = None
+app.config["SESSION_COOKIE_SECURE"] = True 
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_REDIS"] = redis.from_url(REDIS_URL)
 
 Session(app)
 
 UPLOAD_FOLDER = "uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# ---------------- VALIDATION ----------------
+
+def validate_redis_connection():
+    """Validate Redis connection at startup"""
+    try:
+        if app.config.get('SESSION_TYPE') == 'redis':
+            # Try to access the Redis instance used by Flask-Session
+            session_interface = app.session_interface
+            redis_client = session_interface.redis
+            if redis_client.ping():
+                app.logger.info("✅ Redis connection successful")
+                return True
+            else:
+                app.logger.error("❌ Redis connection failed - no response to ping")
+                return False
+    except (RedisError, AttributeError) as e:
+        app.logger.error(f"❌ Redis connection error: {str(e)}")
+        return False
+
+if not validate_redis_connection():
+    app.logger.error("Redis connection failed. Session persistence will not work correctly!")
+    if os.getenv("ENVIRONMENT") == "production":
+        app.logger.error("Exiting application due to Redis connection failure in production")
+        sys.exit(1)
+
 
 # ---------------- ROUTES ----------------
 
@@ -86,7 +118,6 @@ def home():
 @app.route("/auth")
 def strava_auth():
     """Redirect user to Strava OAuth login page."""
-    # Store the return_to URL if provided (for multi-page apps)
     if request.args.get("return_to"):
         session["return_to"] = request.args.get("return_to")
         
@@ -101,11 +132,13 @@ def strava_auth():
 
 @app.route("/auth/callback", methods=["GET"])
 def strava_callback():
-    """Handle Strava OAuth callback and store the session."""
+    """Handle Strava OAuth callback and store the session, then redirect to frontend."""
     code = request.args.get("code")
     
     if not code:
-        return redirect(url_for("home", error="Missing authorization code"))
+        app.logger.error("Missing authorization code in callback")
+        # Redirect to frontend with error parameter
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_code")
 
     token_url = "https://www.strava.com/oauth/token"
     payload = {
@@ -119,7 +152,11 @@ def strava_callback():
     try:
         response = requests.post(token_url, data=payload)
         token_data = response.json()
-        app.logger.info(f"🔄 Strava Response: {token_data}")
+        
+        # Log token data but mask sensitive info
+        safe_log_data = {k: (v if k not in ['access_token', 'refresh_token'] else '***MASKED***') 
+                          for k, v in token_data.items()}
+        app.logger.info(f"🔄 Strava Response: {safe_log_data}")
 
         if "access_token" in token_data:
             # Store all token data in session
@@ -130,24 +167,34 @@ def strava_callback():
             session.permanent = True
             session.modified = True
 
-            app.logger.info(f"✅ After storing token, session: {dict(session)}")
+            app.logger.info(f"✅ Session created and stored")
             
-            # Redirect to intended page or default to home
-            return_to = session.pop("return_to", url_for("activity_selection"))
-            return redirect(return_to)
+            # For cross-site cookies to work, we need these settings
+            # They should be defined in app config, but we'll ensure they're applied correctly here
+            resp = redirect(f"{FRONTEND_URL}?auth_success=true")
+            
+            # Log the redirect URL for debugging
+            app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
+            
+            return resp
         else:
-            return redirect(url_for("home", error="Failed to authenticate with Strava"))
+            app.logger.error(f"Failed to get access token: {token_data}")
+            return redirect(f"{FRONTEND_URL}?auth_error=strava_token_failure")
     except Exception as e:
         app.logger.error(f"Error in Strava callback: {str(e)}")
-        return redirect(url_for("home", error="Authentication error"))
+        return redirect(f"{FRONTEND_URL}?auth_error=exception&message={str(e)}")
 
 @app.route("/api/session-status")
 def session_status():
-    """Check if user is authenticated and return status."""
+    """Check if user is authenticated and return status with enhanced debugging."""
+    app.logger.info(f"📝 Session data: {dict(session)}")
+    app.logger.info(f"🍪 Request cookies: {request.cookies}")
+    
     if "strava_token" in session:
-        # Optionally check if token is expired and refresh if needed
+        # Check if token is expired and refresh if needed
         if session.get("expires_at") and time.time() > session.get("expires_at"):
             try:
+                app.logger.info("🔄 Token expired, attempting to refresh...")
                 # Refresh token logic
                 token_url = "https://www.strava.com/oauth/token"
                 payload = {
@@ -163,22 +210,26 @@ def session_status():
                     session["refresh_token"] = token_data.get("refresh_token")
                     session["expires_at"] = token_data.get("expires_at")
                     session.modified = True
+                    app.logger.info("✅ Token refreshed successfully")
                 else:
-                    # Failed to refresh, consider user logged out
+                    app.logger.error(f"❌ Failed to refresh token: {response.status_code} {response.text}")
                     session.clear()
-                    return jsonify({"authenticated": False})
+                    return jsonify({"authenticated": False, "reason": "token_refresh_failed"})
             except Exception as e:
-                app.logger.error(f"Error refreshing token: {str(e)}")
+                app.logger.error(f"❌ Error refreshing token: {str(e)}")
                 session.clear()
-                return jsonify({"authenticated": False})
+                return jsonify({"authenticated": False, "reason": "token_refresh_error"})
                 
         # User is authenticated
+        app.logger.info("✅ User is authenticated")
         return jsonify({
             "authenticated": True,
-            "athlete": session.get("athlete")
+            "athlete": session.get("athlete"),
+            "expires_at": session.get("expires_at")
         })
     else:
-        return jsonify({"authenticated": False})
+        app.logger.info("❌ User is NOT authenticated (no token in session)")
+        return jsonify({"authenticated": False, "reason": "no_token"})
 
 @app.route("/activities", methods=["GET"])
 def get_activities():
@@ -319,7 +370,15 @@ def logout():
 
 @app.after_request
 def log_response_headers(response):
-    """Log response headers for debugging."""
+    """Log response headers and cookies for debugging."""
+    if app.debug:
+        app.logger.debug(f"Response Headers: {dict(response.headers)}")
+        
+        # Check if there's a session cookie in the response
+        for cookie in response.headers.getlist('Set-Cookie'):
+            if 'session=' in cookie:
+                app.logger.debug(f"Session Cookie Found: {cookie}")
+
     return response
 
 @app.context_processor

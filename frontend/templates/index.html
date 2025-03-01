@@ -35,7 +35,13 @@
 
     <!-- Activity Selection Section (Hidden Until Logged In) -->
     <div class="container hidden" id="activitySection">
-        <h2>Your Strava Activities</h2>
+        <div class="header-container">
+            <h2>Your Strava Activities</h2>
+            <button id="logoutButton" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Log Out
+            </button>
+        </div>
+        
         <table id="activityTable">
             <thead>
                 <tr>
@@ -48,29 +54,36 @@
             <tbody id="activityList"></tbody>
         </table>
     
-        <label>
-            <input type="checkbox" id="trimCheckbox" checked disabled> Trim Stopped Time (Required)
-        </label>
-    
-        <label>
-            <input type="checkbox" id="editDistanceCheckbox" onchange="toggleDistanceInput()"> Edit Distance?
-        </label>
-    
-        <div id="distanceInputContainer" style="display: none;">
-            <label for="newDistance">Enter New Distance (miles):</label>
-            <input type="number" id="newDistance" min="0.1" step="0.01" placeholder="Enter new distance">
+        <div class="activity-options">
+            <div class="activity-option">
+                <label>
+                    <input type="checkbox" id="trimCheckbox" checked disabled>
+                    Trim Stopped Time (Required)
+                </label>
+            </div>
+        
+            <div class="activity-option">
+                <label>
+                    <input type="checkbox" id="editDistanceCheckbox" onchange="toggleDistanceInput()">
+                    Edit Distance?
+                </label>
+            </div>
+        
+            <div id="distanceInputContainer" style="display: none;">
+                <label for="newDistance">Enter New Distance (miles):</label>
+                <input type="number" id="newDistance" min="0.1" step="0.01" placeholder="Enter new distance">
+            </div>
         </div>
     
-        <button onclick="downloadAndProcessActivity()">Trim Activity</button>
         <p id="message"></p>
-        <button id="logoutButton" onclick="logout()">Log Out</button>
+        <button onclick="downloadAndProcessActivity()">Trim Activity</button>
     </div>
 
     <div class="steps">
-        <div class="step"><span class="step-number">1.</span> Login to Strava to provide access to your activity.</div>
-        <div class="step"><span class="step-number">2.</span> Select an activity to trim.</div>
-        <div class="step"><span class="step-number">3.</span> Strava Trimmer will remove excess stopped time.</div>
-        <div class="step"><span class="step-number">4.</span> The corrected activity will be uploaded back to Strava!</div>
+        <div class="step"><span class="step-number">1</span> Login to Strava to provide access to your activity.</div>
+        <div class="step"><span class="step-number">2</span> Select an activity to trim.</div>
+        <div class="step"><span class="step-number">3</span> Strava Trimmer will remove excess stopped time.</div>
+        <div class="step"><span class="step-number">4</span> The corrected activity will be uploaded back to Strava!</div>
     </div>
 
     <div class="footer">

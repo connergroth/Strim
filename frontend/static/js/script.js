@@ -9,11 +9,81 @@ const BACKEND_URL = window.location.hostname === "localhost" || window.location.
 function checkAuthStatus() {
     console.log("Checking authentication status...");
     
+    // First, check for auth success/error URL parameters (from redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get("auth_success");
+    const authError = urlParams.get("auth_error");
+    const errorMsg = urlParams.get("message");
+    
+    // Remove query parameters from URL to prevent issues on refresh
+    if (authSuccess || authError) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Handle auth error from redirect
+    if (authError) {
+        console.error(`❌ Authentication error: ${authError}`);
+        if (errorMsg) {
+            console.error(`Error details: ${errorMsg}`);
+        }
+        
+        // Display error message to user
+        const message = document.getElementById("message");
+        if (message) {
+            message.innerText = `Authentication failed: ${authError}. Please try again.`;
+            message.classList.add("error");
+        }
+        
+        // Ensure auth section is visible on index page
+        if (document.getElementById("authSection")) {
+            document.getElementById("authSection").classList.remove("hidden");
+        }
+        if (document.getElementById("activitySection")) {
+            document.getElementById("activitySection").classList.add("hidden");
+        }
+        return;
+    }
+    
+    // If auth_success=true is in URL, we just completed authentication
+    if (authSuccess) {
+        console.log("✅ Authentication successful from redirect");
+        
+        // Show a success message briefly
+        const message = document.getElementById("message");
+        if (message) {
+            message.innerText = "Successfully authenticated with Strava!";
+            message.classList.add("success");
+            
+            // Clear message after 3 seconds
+            setTimeout(() => {
+                message.innerText = "";
+                message.classList.remove("success");
+            }, 3000);
+        }
+        
+        // No need to check session here as we know we just authenticated
+        if (document.getElementById("authSection")) {
+            document.getElementById("authSection").classList.add("hidden");
+        }
+        if (document.getElementById("activitySection")) {
+            document.getElementById("activitySection").classList.remove("hidden");
+        }
+        fetchActivities();
+        return;
+    }
+    
+    // If no auth parameters, check session status from backend
     fetch(`${BACKEND_URL}/api/session-status`, {
         method: "GET",
         credentials: "include"  // Send cookies with request
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`Auth status response code: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         console.log("Auth status response:", data);
         if (data.authenticated) {
@@ -46,6 +116,13 @@ function checkAuthStatus() {
     })
     .catch(error => {
         console.error("Error checking auth status:", error);
+        
+        // Show error message to user
+        const message = document.getElementById("message");
+        if (message) {
+            message.innerText = `Error checking authentication: ${error.message}`;
+            message.classList.add("error");
+        }
     });
 }
 
@@ -55,12 +132,17 @@ function checkAuthStatus() {
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
+        const BACKEND_URL = config.getBackendURL();
+
+        // Show loading indicator
+        document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
         const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
             credentials: "include",  // Ensures cookies are sent
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
             }
         });
 
@@ -68,8 +150,12 @@ async function fetchActivities() {
             console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
 
             if (response.status === 401) {
+                console.log("Session expired, showing login prompt");
                 alert("Session expired. Please log in again.");
                 window.location.href = "/index.html";  // Redirect to login
+            } else {
+                document.getElementById("activityList").innerHTML = 
+                    `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
             }
             return;
         }
@@ -78,7 +164,8 @@ async function fetchActivities() {
         console.log("✅ Fetched activities:", data);
 
         if (!data.activities || data.activities.length === 0) {
-            document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>No activities found</td></tr>";
+            document.getElementById("activityList").innerHTML = 
+                "<tr><td colspan='4'>No activities found. Make sure you have activities on Strava.</td></tr>";
             return;
         }
 
@@ -98,6 +185,8 @@ async function fetchActivities() {
 
     } catch (error) {
         console.error("❌ Network error fetching activities:", error);
+        document.getElementById("activityList").innerHTML = 
+            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         alert("Failed to load activities. Please try again.");
     }
 }
@@ -185,22 +274,22 @@ function logout() {
  * Initialize on page load
  */
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("Document loaded, checking authentication...");
+    console.log("Document loaded, initializing app...");
+    console.log(`Backend URL: ${BACKEND_URL}`);
+    console.log(`Frontend URL: ${APP_URL}`);
     
     // Configure Strava auth link
     const stravaAuthLink = document.getElementById("stravaAuthLink");
     if (stravaAuthLink) {
         stravaAuthLink.href = `${BACKEND_URL}/auth`;
+        console.log(`Set auth link to: ${stravaAuthLink.href}`);
     }
     
-    // Check if redirected from OAuth
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-    
-    if (code) {
-        console.log("🔑 OAuth Code Found:", code);
-        // Remove code from URL to prevent issues on refresh
-        window.history.replaceState({}, document.title, window.location.pathname);
+    // Add message element if it doesn't exist
+    if (!document.getElementById("message")) {
+        const messageDiv = document.createElement("div");
+        messageDiv.id = "message";
+        document.body.insertBefore(messageDiv, document.body.firstChild);
     }
     
     // Check auth status and load appropriate view
