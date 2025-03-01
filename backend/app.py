@@ -36,19 +36,15 @@ app = Flask(
     static_url_path="/static" 
 )
 
-# Environment configuration
-if os.getenv("ENVIRONMENT") == "production":
-    BASE_URL = "https://strim-production.up.railway.app"
-    FRONTEND_URL = "https://strimrun.vercel.app"
-else:
-    BASE_URL = "http://localhost:8080"
-    FRONTEND_URL = "http://localhost:3000"
+# Production-only configuration
+BASE_URL = "https://strim-production.up.railway.app"
+FRONTEND_URL = "https://strimrun.vercel.app"
 
 # Redis configuration
 REDIS_URL = os.getenv("REDIS_URL")
 if not REDIS_URL:
-    logger.warning("REDIS_URL not found in environment variables. Using default.")
-    REDIS_URL = "redis://localhost:6379/0"
+    logger.error("REDIS_URL not found in environment variables.")
+    sys.exit(1)  # Exit if Redis URL is not set in production
 
 # Try to establish Redis connection
 try:
@@ -57,40 +53,33 @@ try:
     logger.info("✅ Redis connection successful")
 except (redis.exceptions.ConnectionError, redis.exceptions.RedisError) as e:
     logger.error(f"❌ Redis connection error: {str(e)}")
-    if os.getenv("ENVIRONMENT") == "production":
-        logger.error("Exiting application due to Redis connection failure in production")
-        sys.exit(1)
-    else:
-        # Fall back to filesystem session in development
-        logger.warning("Falling back to filesystem session for development")
-        app.config["SESSION_TYPE"] = "filesystem"
+    logger.error("Exiting application due to Redis connection failure in production")
+    sys.exit(1)
 
 # Flask session configuration
-app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
-app.config["SESSION_TYPE"] = "redis" if REDIS_URL and 'redis_client' in locals() else "filesystem"
+app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    logger.error("SECRET_KEY not found in environment variables.")
+    sys.exit(1)  # Exit if secret key is not set in production
+    
+app.config["SESSION_TYPE"] = "redis"
 app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("ENVIRONMENT") == "production"
-app.config["SESSION_COOKIE_SAMESITE"] = "None" if os.getenv("ENVIRONMENT") == "production" else "Lax"
-
-# Only set redis connection if using redis sessions and connection was successful
-if app.config["SESSION_TYPE"] == "redis" and 'redis_client' in locals():
-    app.config["SESSION_REDIS"] = redis_client
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.config["SESSION_REDIS"] = redis_client
 
 # Initialize Flask-Session
 Session(app)
 
-# CORS Configuration
+# CORS Configuration - production only
 CORS(app, 
     supports_credentials=True,  
     origins=[
         "https://strimrun.vercel.app",
-        "https://strim-conner-groths-projects.vercel.app",  
-        "http://localhost:3000",  
-        "http://127.0.0.1:8080",
-        "http://localhost:8080"
+        "https://strim-conner-groths-projects.vercel.app"
     ],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -371,13 +360,12 @@ def logout():
 @app.after_request
 def log_response_headers(response):
     """Log response headers and cookies for debugging."""
-    if app.debug:
-        app.logger.debug(f"Response Headers: {dict(response.headers)}")
-        
-        # Check if there's a session cookie in the response
-        for cookie in response.headers.getlist('Set-Cookie'):
-            if 'session=' in cookie:
-                app.logger.debug(f"Session Cookie Found: {cookie}")
+    app.logger.debug(f"Response Headers: {dict(response.headers)}")
+    
+    # Check if there's a session cookie in the response
+    for cookie in response.headers.getlist('Set-Cookie'):
+        if 'session=' in cookie:
+            app.logger.debug(f"Session Cookie Found: {cookie}")
 
     return response
 
@@ -386,14 +374,14 @@ def inject_env_variables():
     return {
         "BASE_URL": BASE_URL,
         "FRONTEND_URL": FRONTEND_URL,
-        "ENVIRONMENT": os.getenv("ENVIRONMENT", "development")
+        "ENVIRONMENT": "production"
     }
 
 # ---------------- END ROUTES ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
 
 def create_app():
     return app
