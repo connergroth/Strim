@@ -56,7 +56,7 @@ except (redis.exceptions.ConnectionError, redis.exceptions.RedisError) as e:
     logger.error("Exiting application due to Redis connection failure in production")
     sys.exit(1)
 
-# Flask session configuration
+# Update the Flask session configuration in app.py
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY")
 if not app.config["SECRET_KEY"]:
     logger.error("SECRET_KEY not found in environment variables.")
@@ -67,19 +67,25 @@ app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Critical for cross-domain cookies
-app.config["SESSION_COOKIE_DOMAIN"] = None  # Allow cookies to be set on any domain
+app.config["SESSION_COOKIE_SECURE"] = True  # For HTTPS only
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Critical for cross-domain requests
 app.config["SESSION_REDIS"] = redis_client
 
 # And ensure your CORS configuration includes 'credentials' support
 CORS(app, 
-    supports_credentials=True,
+    supports_credentials=True,  
     origins=[
         "https://strimrun.vercel.app",
-        "https://strim-conner-groths-projects.vercel.app"
+        "https://strim-conner-groths-projects.vercel.app",
     ],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "X-Requested-With", 
+        "Accept", 
+        "Origin", 
+        "Cache-Control"  
+    ],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     expose_headers=["Content-Type", "X-CSRFToken"],
     max_age=600
@@ -354,6 +360,12 @@ def logout():
     """Logout user by clearing session."""
     session.clear()
     return jsonify({"success": "Logged out"}), 200
+
+# Add a special route to check if the API is accessible without auth
+@app.route("/api/ping", methods=["GET", "OPTIONS"])
+def ping():
+    """Simple endpoint to check if the API is accessible."""
+    return jsonify({"status": "ok", "message": "API is accessible"}), 200
 
 @app.after_request
 def log_response_headers(response):

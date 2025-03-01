@@ -5,15 +5,37 @@ const FRONTEND_URL = "https://strimrun.vercel.app";
 /**
  * Show a message to the user
  */
+/**
+ * Show a message to the user with improved handling of empty messages
+ */
 function showMessage(text, type = "info") {
     const message = document.getElementById("message");
-    if (message) {
-        message.innerText = text;
-        // Reset classes
+    if (!message) return;
+    
+    if (!text || text.trim() === "") {
+        // If no message, completely hide the element
+        message.textContent = "";
+        message.style.display = "none";
         message.className = "";
-        message.classList.add(type);
+        return;
     }
+    
+    // Otherwise show the message properly
+    message.textContent = text;
+    message.style.display = "block";
+    message.className = type || "info";
 }
+
+// Make sure to initialize the message as hidden
+document.addEventListener("DOMContentLoaded", function() {
+    const message = document.getElementById("message");
+    if (message) {
+        message.style.display = "none";
+        message.textContent = "";
+    }
+    
+    // Rest of your initialization code...
+});
 
 /**
  * Check if user is authenticated and redirect if needed
@@ -43,12 +65,8 @@ function checkAuthStatus() {
         showMessage(`Authentication failed: ${authError}. Please try again.`, "error");
         
         // Ensure auth section is visible on index page
-        if (document.getElementById("authSection")) {
-            document.getElementById("authSection").classList.remove("hidden");
-        }
-        if (document.getElementById("activitySection")) {
-            document.getElementById("activitySection").classList.add("hidden");
-        }
+        document.getElementById("authSection").classList.remove("hidden");
+        document.getElementById("activitySection").classList.add("hidden");
         return;
     }
     
@@ -62,33 +80,34 @@ function checkAuthStatus() {
             showMessage("");
         }, 3000);
         
-        // No need to check session here as we know we just authenticated
-        if (document.getElementById("authSection")) {
-            document.getElementById("authSection").classList.add("hidden");
-        }
-        if (document.getElementById("activitySection")) {
-            document.getElementById("activitySection").classList.remove("hidden");
-        }
+        // Show activity section and fetch activities
+        document.getElementById("authSection").classList.add("hidden");
+        document.getElementById("activitySection").classList.remove("hidden");
         fetchActivities();
         return;
     }
     
     // If no auth parameters, check session status from backend
+    // But don't show any error messages yet - this is just a check
+    console.log("No auth parameters, checking session status quietly...");
+    
     fetch(`${BACKEND_URL}/api/session-status`, {
         method: "GET",
-        credentials: "include",  // Send cookies with request
-        headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
+        credentials: "include"  // Send cookies with request
     })
     .then(response => {
-        console.log(`Auth status response code: ${response.status}`);
         if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            // Don't throw an error here, just handle the failed auth silently
+            console.log(`Auth check returned ${response.status} - not authenticated`);
+            document.getElementById("authSection").classList.remove("hidden");
+            document.getElementById("activitySection").classList.add("hidden");
+            return null;
         }
         return response.json();
     })
     .then(data => {
+        if (!data) return; // Skip if response wasn't ok
+        
         console.log("Auth status response:", data);
         if (data.authenticated) {
             console.log("✅ User is authenticated");
@@ -100,7 +119,7 @@ function checkAuthStatus() {
         } else {
             console.log(`❌ User is NOT authenticated: ${data.reason || 'unknown reason'}`);
             
-            // Ensure auth section is visible
+            // Silent failure - just show auth section
             document.getElementById("authSection").classList.remove("hidden");
             document.getElementById("activitySection").classList.add("hidden");
         }
@@ -108,10 +127,7 @@ function checkAuthStatus() {
     .catch(error => {
         console.error("Error checking auth status:", error);
         
-        // Show error message to user
-        showMessage(`Error checking authentication: ${error.message}`, "error");
-        
-        // Show auth section as fallback
+        // Silently fail - don't show error messages on initial page load
         document.getElementById("authSection").classList.remove("hidden");
         document.getElementById("activitySection").classList.add("hidden");
     });
@@ -127,13 +143,11 @@ async function fetchActivities() {
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
+        // Modified fetch call - removing problematic headers
         const response = await fetch(`${BACKEND_URL}/activities`, {
             method: "GET",
-            credentials: "include",  // Ensures cookies are sent
-            headers: {
-                "Content-Type": "application/json",
-                'Cache-Control': 'no-cache, no-store, must-revalidate'
-            }
+            credentials: "include"  // Ensures cookies are sent
+            // Removed problematic headers
         });
 
         if (!response.ok) {
@@ -182,6 +196,14 @@ async function fetchActivities() {
         console.error("❌ Network error fetching activities:", error);
         document.getElementById("activityList").innerHTML = 
             `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
+        
+        // Add more helpful message for CORS errors
+        if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
+            document.getElementById("activityList").innerHTML = 
+                `<tr><td colspan='4'>CORS error: The server is not accessible from this domain. Please check server configuration.</td></tr>`;
+            
+            showMessage("CORS error: Unable to connect to the server. This may be a temporary issue or a server configuration problem.", "error");
+        }
     }
 }
 

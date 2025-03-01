@@ -19,7 +19,8 @@
 </head>
 <body>
     <!-- Message container for notifications -->
-    <div id="message"></div>
+    <div id="message" style="display: none;"></div>
+
 
     <!-- Authentication Section -->
     <div id="authSection">
@@ -100,6 +101,12 @@
         /* This ensures the activity section is hidden by default */
         #activitySection.hidden {
             display: none !important;
+        }
+        #message:empty {
+        display: none !important;
+        }
+        .hidden {
+        display: none !important;
         }
     </style>
 
