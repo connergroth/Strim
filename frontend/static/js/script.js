@@ -319,11 +319,35 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log(`Set auth link to: ${stravaAuthLink.href}`);
     }
     
+    // Explicitly set up the event handlers for the buttons
+    const toggleCheckbox = document.getElementById("editDistanceCheckbox");
+    if (toggleCheckbox) {
+        toggleCheckbox.addEventListener("change", toggleDistanceInput);
+    }
+    
+    const trimButton = document.querySelector("#activitySection button");
+    if (trimButton) {
+        trimButton.addEventListener("click", downloadAndProcessActivity);
+    }
+    
+    const logoutButton = document.getElementById("logoutButton");
+    if (logoutButton) {
+        logoutButton.addEventListener("click", logout);
+    }
+    
     // Check auth status and load appropriate view
     checkAuthStatus();
 });
 
-// Expose functions to global scope for use in the HTML onclick handlers
+// Make sure the functions are exposed to the global scope
+// This is redundant with the event listeners above but provides a fallback
 window.toggleDistanceInput = toggleDistanceInput;
 window.downloadAndProcessActivity = downloadAndProcessActivity;
 window.logout = logout;
+
+// Explicitly confirm the functions are attached to the window object
+console.log("✅ Global functions attached:", {
+    toggleDistanceInput: typeof window.toggleDistanceInput === 'function',
+    downloadAndProcessActivity: typeof window.downloadAndProcessActivity === 'function',
+    logout: typeof window.logout === 'function'
+});

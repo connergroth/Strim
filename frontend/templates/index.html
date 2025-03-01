@@ -16,9 +16,6 @@
 
     <!-- Link External CSS -->
     <link rel="stylesheet" href="/static/css/styles.css">
-
-    <!-- Link External JS -->
-    <script type="module" src="/static/js/script.js"></script>
 </head>
 <body>
     <!-- Message container for notifications -->
@@ -39,7 +36,7 @@
     <div class="container hidden" id="activitySection">
         <div class="header-container">
             <h2>Your Strava Activities</h2>
-            <button id="logoutButton" onclick="logout()">
+            <button id="logoutButton">
                 <i class="fas fa-sign-out-alt"></i> Log Out
             </button>
         </div>
@@ -68,7 +65,7 @@
         
             <div class="activity-option">
                 <label>
-                    <input type="checkbox" id="editDistanceCheckbox" onchange="toggleDistanceInput()">
+                    <input type="checkbox" id="editDistanceCheckbox">
                     Edit Distance?
                 </label>
             </div>
@@ -79,7 +76,7 @@
             </div>
         </div>
     
-        <button onclick="downloadAndProcessActivity()">Trim Activity</button>
+        <button id="trimActivityButton">Trim Activity</button>
     </div>
 
     <div class="steps">
@@ -98,12 +95,8 @@
         <img src="/static/assets/api_logo_pwrdBy_strava_horiz_gray.png" 
              alt="Powered by Strava" class="strava-logo">
     </div>
-    
-    <style>
-        /* This ensures the activity section is hidden by default */
-        #activitySection.hidden {
-            display: none !important;
-        }
-    </style>
+
+    <!-- Load the script at the end to ensure DOM is fully loaded -->
+    <script src="/static/js/script.js"></script>
 </body>
 </html>
