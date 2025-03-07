@@ -141,22 +141,50 @@ def home():
 @app.route("/auth")
 def strava_auth():
     """Redirect user to Strava OAuth login page."""
+    # Store return_to URL if provided
     if request.args.get("return_to"):
         session["return_to"] = request.args.get("return_to")
+    
+    # Validate required environment variables
+    client_id = os.getenv('STRAVA_CLIENT_ID')
+    redirect_uri = os.getenv('STRAVA_REDIRECT_URI')
+    
+    if not client_id:
+        app.logger.error("❌ STRAVA_CLIENT_ID environment variable is missing")
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_client_id")
         
+    if not redirect_uri:
+        app.logger.error("❌ STRAVA_REDIRECT_URI environment variable is missing")
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_redirect_uri")
+    
+    # Log the authentication attempt (mask part of client ID)
+    masked_client_id = f"{client_id[:2]}...{client_id[-2:]}" if len(client_id) > 4 else "***"
+    app.logger.info(f"🔑 Initiating Strava authentication with client ID: {masked_client_id}")
+    app.logger.info(f"🔑 Using redirect URI: {redirect_uri}")
+    
+    # Build the authorization URL
     auth_url = (
         f"https://www.strava.com/oauth/authorize"
-        f"?client_id={os.getenv('STRAVA_CLIENT_ID')}"
+        f"?client_id={client_id}"
         f"&response_type=code"
-        f"&redirect_uri={os.getenv('STRAVA_REDIRECT_URI')}"
+        f"&redirect_uri={redirect_uri}"
         f"&scope=activity:read,activity:read_all,activity:write"
+        f"&approval_prompt=auto"  # Only prompt for approval if the user hasn't already approved
     )
+    
+    app.logger.info(f"🔀 Redirecting to Strava authorization: {auth_url}")
     return redirect(auth_url)
 
 @app.route("/auth/callback", methods=["GET"])
 def strava_callback():
     """Handle Strava OAuth callback and store the session."""
     code = request.args.get("code")
+    error = request.args.get("error")
+    
+    # Check for error parameter from Strava
+    if error:
+        app.logger.error(f"Strava returned an error: {error}")
+        return redirect(f"{FRONTEND_URL}?auth_error={error}")
     
     if not code:
         app.logger.error("Missing authorization code in callback")
@@ -170,46 +198,88 @@ def strava_callback():
         "grant_type": "authorization_code"
     }
 
-    app.logger.info(f"📡 Sending request to Strava: {payload}")
+    # Log the client ID being used (mask part of it)
+    client_id = os.getenv('STRAVA_CLIENT_ID')
+    if client_id:
+        masked_client_id = f"{client_id[:2]}...{client_id[-2:]}" if len(client_id) > 4 else "***"
+        app.logger.info(f"📡 Using Strava client ID: {masked_client_id}")
+    else:
+        app.logger.error("❌ STRAVA_CLIENT_ID environment variable is missing")
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_client_id")
+        
+    # Check if client secret is set (don't log it)
+    if not os.getenv('STRAVA_CLIENT_SECRET'):
+        app.logger.error("❌ STRAVA_CLIENT_SECRET environment variable is missing")
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_client_secret")
+    
+    # Check if redirect URI is set
+    redirect_uri = os.getenv('STRAVA_REDIRECT_URI')
+    if not redirect_uri:
+        app.logger.error("❌ STRAVA_REDIRECT_URI environment variable is missing")
+        return redirect(f"{FRONTEND_URL}?auth_error=missing_redirect_uri")
+    else:
+        app.logger.info(f"📡 Using Strava redirect URI: {redirect_uri}")
+
+    app.logger.info(f"📡 Sending token request to Strava")
     try:
-        response = requests.post(token_url, data=payload)
-        token_data = response.json()
+        response = requests.post(token_url, data=payload, timeout=10)
+        
+        # Log the response status and headers (but not the body which contains sensitive info)
+        app.logger.info(f"🔄 Strava token response status: {response.status_code}")
+        app.logger.info(f"🔄 Strava token response headers: {dict(response.headers)}")
+        
+        if response.status_code != 200:
+            app.logger.error(f"❌ Strava token request failed with status {response.status_code}: {response.text}")
+            return redirect(f"{FRONTEND_URL}?auth_error=strava_api_error&status={response.status_code}")
+            
+        try:
+            token_data = response.json()
+        except ValueError:
+            app.logger.error(f"❌ Failed to parse Strava response as JSON: {response.text[:100]}...")
+            return redirect(f"{FRONTEND_URL}?auth_error=invalid_json_response")
         
         # Log token data but mask sensitive info
         safe_log_data = {k: (v if k not in ['access_token', 'refresh_token'] else '***MASKED***') 
                           for k, v in token_data.items()}
         app.logger.info(f"🔄 Strava Response: {safe_log_data}")
 
-        if "access_token" in token_data:
-            # Clear any existing session first
-            session.clear()
-            
-            # Store all token data in session
-            session["strava_token"] = token_data["access_token"]
-            session["refresh_token"] = token_data.get("refresh_token")
-            session["expires_at"] = token_data.get("expires_at")
-            session["athlete"] = token_data.get("athlete")
-            session.permanent = True
-            
-            # Force save session
-            session.modified = True
-            
-            # Log session data (mask sensitive info)
-            masked_session = {k: ('***MASKED***' if k in ['strava_token', 'refresh_token'] else v) 
-                              for k, v in dict(session).items()}
-            app.logger.info(f"✅ Session created: {masked_session}")
-            app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
-            
-            # Create explicit response to set cookies properly
-            resp = redirect(f"{FRONTEND_URL}?auth_success=true")
-            app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
-            return resp
-        else:
-            app.logger.error(f"Failed to get access token: {token_data}")
-            return redirect(f"{FRONTEND_URL}?auth_error=strava_token_failure")
+        if "access_token" not in token_data:
+            app.logger.error(f"❌ No access token in Strava response: {safe_log_data}")
+            return redirect(f"{FRONTEND_URL}?auth_error=missing_access_token")
+
+        # Clear any existing session first
+        session.clear()
+        
+        # Store all token data in session
+        session["strava_token"] = token_data["access_token"]
+        session["refresh_token"] = token_data.get("refresh_token")
+        session["expires_at"] = token_data.get("expires_at")
+        session["athlete"] = token_data.get("athlete")
+        session.permanent = True
+        
+        # Force save session
+        session.modified = True
+        
+        # Log session data (mask sensitive info)
+        masked_session = {k: ('***MASKED***' if k in ['strava_token', 'refresh_token'] else v) 
+                          for k, v in dict(session).items()}
+        app.logger.info(f"✅ Session created: {masked_session}")
+        app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
+        
+        # Create explicit response to set cookies properly
+        resp = redirect(f"{FRONTEND_URL}?auth_success=true")
+        
+        # Log the redirect URL
+        app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
+        
+        return resp
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"❌ Network error during Strava token request: {str(e)}")
+        return redirect(f"{FRONTEND_URL}?auth_error=network_error&message={str(e)}")
     except Exception as e:
-        app.logger.error(f"Error in Strava callback: {str(e)}")
-        return redirect(f"{FRONTEND_URL}?auth_error=exception&message={str(e)}")
+        app.logger.error(f"❌ Unexpected error in Strava callback: {str(e)}")
+        app.logger.error(traceback.format_exc())
+        return redirect(f"{FRONTEND_URL}?auth_error=unexpected_error&message={str(e)}")
 
 @app.route("/api/session-status")
 def session_status():
@@ -489,6 +559,35 @@ def inject_env_variables():
         "FRONTEND_URL": FRONTEND_URL,
         "ENVIRONMENT": "production"
     }
+
+# Add a diagnostic route to check environment variables
+@app.route("/api/check-env", methods=["GET"])
+def check_env():
+    """Check environment variables (admin only)."""
+    # This should only be accessible with an admin token in production
+    admin_token = request.args.get('admin_token')
+    if not admin_token or admin_token != os.getenv('ADMIN_SECRET'):
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    # Check critical environment variables
+    env_status = {
+        "STRAVA_CLIENT_ID": bool(os.getenv('STRAVA_CLIENT_ID')),
+        "STRAVA_CLIENT_SECRET": bool(os.getenv('STRAVA_CLIENT_SECRET')),
+        "STRAVA_REDIRECT_URI": os.getenv('STRAVA_REDIRECT_URI'),
+        "FLASK_SECRET_KEY": bool(os.getenv('FLASK_SECRET_KEY')),
+        "REDIS_URL": bool(os.getenv('REDIS_URL')),
+        "BASE_URL": BASE_URL,
+        "FRONTEND_URL": FRONTEND_URL
+    }
+    
+    # Check Redis connection
+    try:
+        redis_client.ping()
+        env_status["REDIS_CONNECTION"] = "OK"
+    except Exception as e:
+        env_status["REDIS_CONNECTION"] = f"ERROR: {str(e)}"
+    
+    return jsonify(env_status)
 
 # ---------------- END ROUTES ----------------
 
