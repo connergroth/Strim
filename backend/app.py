@@ -95,20 +95,37 @@ CORS(app,
     ],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     expose_headers=["Content-Type", "X-CSRFToken", "Set-Cookie"],  # Expose Set-Cookie header
-    max_age=600
+    max_age=600,
+    vary_header=True
 )
 
 # Initialize Flask-Session
 Session(app)
 
 # Security Headers
-Talisman(app, content_security_policy={
-    'default-src': "'self'",
-    'script-src': "'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-    'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-    'img-src': "'self' data:",
-    'report-uri': "/csp-report"  
-})
+Talisman(app, 
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': "'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+        'style-src': "'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+        'img-src': "'self' data:",
+        'report-uri': "/csp-report"  
+    },
+    force_https=True,
+    force_https_permanent=True,
+    frame_options='SAMEORIGIN',
+    content_security_policy_nonce_in=['script-src'],
+    strict_transport_security=True,
+    strict_transport_security_preload=True,
+    strict_transport_security_max_age=31536000,
+    session_cookie_secure=True,
+    session_cookie_http_only=True,
+    feature_policy=None,
+    force_file_save=False,
+    content_security_policy_report_only=False,
+    content_security_policy_report_uri=None,
+    referrer_policy='no-referrer-when-downgrade'
+)
 
 UPLOAD_FOLDER = "uploads"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
@@ -183,7 +200,7 @@ def strava_callback():
             app.logger.info(f"✅ Session created: {masked_session}")
             app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
             
-            # Create explicit response to set cookies properly.
+            # Create explicit response to set cookies properly
             resp = redirect(f"{FRONTEND_URL}?auth_success=true")
             app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
             return resp
@@ -456,7 +473,11 @@ def log_response_headers(response):
             app.logger.debug(f"Session Cookie Found: {cookie}")
     
     # Ensure CORS headers are set correctly for all responses
-    if request.method == 'OPTIONS':
+    # Only set the header if it's not already set to avoid duplication
+    if request.method == 'OPTIONS' and 'Access-Control-Allow-Credentials' not in response.headers:
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    # If the header is duplicated, fix it
+    elif 'Access-Control-Allow-Credentials' in response.headers and response.headers['Access-Control-Allow-Credentials'] != 'true':
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         
     return response
