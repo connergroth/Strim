@@ -70,6 +70,8 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"  
 app.config["SESSION_REDIS"] = redis_client
+app.config["SESSION_COOKIE_PATH"] = "/"
+app.config["SESSION_COOKIE_DOMAIN"] = None  # Allow the browser to decide based on same-origin policy
 
 # And ensure your CORS configuration includes 'credentials' support
 CORS(app, 
@@ -77,6 +79,11 @@ CORS(app,
     origins=[
         "https://strimrun.vercel.app",
         "https://strim-conner-groths-projects.vercel.app",
+        # Add localhost for development
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5000"
     ],
     allow_headers=[
         "Content-Type", 
@@ -90,6 +97,9 @@ CORS(app,
     expose_headers=["Content-Type", "X-CSRFToken", "Set-Cookie"],  # Expose Set-Cookie header
     max_age=600
 )
+
+# Initialize Flask-Session
+Session(app)
 
 # Security Headers
 Talisman(app, content_security_policy={
@@ -126,7 +136,6 @@ def strava_auth():
     )
     return redirect(auth_url)
 
-@app.route("/auth/callback", methods=["GET"])
 @app.route("/auth/callback", methods=["GET"])
 def strava_callback():
     """Handle Strava OAuth callback and store the session."""
@@ -238,19 +247,57 @@ def get_activities():
     app.logger.info(f"📝 Request to /activities - Session data: {dict(session)}")
     app.logger.info(f"🍪 Request cookies: {request.cookies}")
     
-    if "strava_token" not in session:
-        # Check if token is in Authorization header (fallback mechanism)
+    # Check for token in multiple places
+    token = None
+    
+    # 1. Check session first
+    if "strava_token" in session:
+        token = session["strava_token"]
+        app.logger.info("✅ Using token from session")
+        
+        # Check if token is expired and refresh if needed
+        if session.get("expires_at") and time.time() > session.get("expires_at"):
+            try:
+                app.logger.info("🔄 Token expired, attempting to refresh...")
+                # Refresh token logic
+                token_url = "https://www.strava.com/oauth/token"
+                payload = {
+                    "client_id": os.getenv('STRAVA_CLIENT_ID'),
+                    "client_secret": os.getenv('STRAVA_CLIENT_SECRET'),
+                    "refresh_token": session.get("refresh_token"),
+                    "grant_type": "refresh_token"
+                }
+                response = requests.post(token_url, data=payload)
+                if response.status_code == 200:
+                    token_data = response.json()
+                    session["strava_token"] = token_data["access_token"]
+                    session["refresh_token"] = token_data.get("refresh_token")
+                    session["expires_at"] = token_data.get("expires_at")
+                    session.modified = True
+                    token = session["strava_token"]
+                    app.logger.info("✅ Token refreshed successfully")
+                else:
+                    app.logger.error(f"❌ Failed to refresh token: {response.status_code} {response.text}")
+            except Exception as e:
+                app.logger.error(f"❌ Error refreshing token: {str(e)}")
+    
+    # 2. Check Authorization header as fallback
+    if not token:
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
-            app.logger.info("Using token from Authorization header")
-        else:
-            app.logger.info("❌ No token in session or header")
-            return jsonify({"error": "Unauthorized. No valid session token."}), 401
-    else:
-        # Get token from session
-        token = session["strava_token"]
-        app.logger.info("✅ Using token from session")
+            app.logger.info("✅ Using token from Authorization header")
+    
+    # 3. Check query parameters as last resort
+    if not token:
+        token = request.args.get('token')
+        if token:
+            app.logger.info("✅ Using token from query parameter")
+    
+    # If still no token, return unauthorized
+    if not token:
+        app.logger.error("❌ No valid token found in session, header, or query params")
+        return jsonify({"error": "Unauthorized. No valid session token."}), 401
 
     # Get activities from Strava
     url = "https://www.strava.com/api/v3/athlete/activities"
@@ -260,7 +307,7 @@ def get_activities():
     response = requests.get(url, headers=headers)
     
     if response.status_code != 200:
-        app.logger.error(f"❌ Strava API error: {response.status_code}")
+        app.logger.error(f"❌ Strava API error: {response.status_code} - {response.text}")
         return jsonify({"error": "Failed to fetch activities from Strava"}), response.status_code
 
     activities = response.json()
@@ -407,7 +454,11 @@ def log_response_headers(response):
     for cookie in response.headers.getlist('Set-Cookie'):
         if 'session=' in cookie:
             app.logger.debug(f"Session Cookie Found: {cookie}")
-
+    
+    # Ensure CORS headers are set correctly for all responses
+    if request.method == 'OPTIONS':
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        
     return response
 
 @app.context_processor
