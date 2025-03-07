@@ -183,7 +183,7 @@ def strava_callback():
             app.logger.info(f"✅ Session created: {masked_session}")
             app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
             
-            # Create explicit response to set cookies properly
+            # Create explicit response to set cookies properly.
             resp = redirect(f"{FRONTEND_URL}?auth_success=true")
             app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
             return resp
