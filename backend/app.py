@@ -68,7 +68,7 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Critical for cross-domain cookies
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  
 app.config["SESSION_REDIS"] = redis_client
 
 # And ensure your CORS configuration includes 'credentials' support
@@ -127,6 +127,7 @@ def strava_auth():
     return redirect(auth_url)
 
 @app.route("/auth/callback", methods=["GET"])
+@app.route("/auth/callback", methods=["GET"])
 def strava_callback():
     """Handle Strava OAuth callback and store the session."""
     code = request.args.get("code")
@@ -154,6 +155,9 @@ def strava_callback():
         app.logger.info(f"🔄 Strava Response: {safe_log_data}")
 
         if "access_token" in token_data:
+            # Clear any existing session first
+            session.clear()
+            
             # Store all token data in session
             session["strava_token"] = token_data["access_token"]
             session["refresh_token"] = token_data.get("refresh_token")
@@ -164,9 +168,13 @@ def strava_callback():
             # Force save session
             session.modified = True
             
-            app.logger.info(f"✅ Session created and stored. Session ID: {request.cookies.get('session', 'unknown')}")
+            # Log session data (mask sensitive info)
+            masked_session = {k: ('***MASKED***' if k in ['strava_token', 'refresh_token'] else v) 
+                              for k, v in dict(session).items()}
+            app.logger.info(f"✅ Session created: {masked_session}")
+            app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
             
-            # Redirect to frontend
+            # Create explicit response to set cookies properly
             resp = redirect(f"{FRONTEND_URL}?auth_success=true")
             app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
             return resp
