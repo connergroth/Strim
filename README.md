@@ -14,9 +14,6 @@ Strim is a tool that allows you to trim your run to the point you stopped runnin
 - Strim automatically deletes your existing activity and reuploads the trimmed one.
 
 # Tech Stack 
-
-Strim is built using the following technologies:
-
 ## 🌐 Frontend 
 - **HTML, CSS, JavaScript** - UI Components
 
