@@ -10,7 +10,7 @@ import logging
 import time
 import sys
 import os
-import urllib.parse  
+import urllib.parse  # Added for URL encoding
 
 import api_utils
 import trimmer
@@ -578,6 +578,7 @@ def logout():
     session.clear()
     return jsonify({"success": "Logged out"}), 200
 
+# Add a special route to check if the API is accessible without auth
 @app.route("/api/ping", methods=["GET", "OPTIONS"])
 def ping():
     """Simple endpoint to check if the API is accessible."""
@@ -593,13 +594,18 @@ def log_response_headers(response):
         if 'session=' in cookie:
             app.logger.debug(f"Session Cookie Found: {cookie}")
     
-    # Ensure CORS headers are set correctly for all responses
-    # Only set the header if it's not already set to avoid duplication
-    if request.method == 'OPTIONS' and 'Access-Control-Allow-Credentials' not in response.headers:
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    # If the header is duplicated, fix it
-    elif 'Access-Control-Allow-Credentials' in response.headers and response.headers['Access-Control-Allow-Credentials'] != 'true':
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    # Fix CORS headers if needed - IMPORTANT: Avoid duplicating headers
+    # First, check if the credentials header exists and is malformed
+    if 'Access-Control-Allow-Credentials' in response.headers:
+        # If it contains duplicates, fix it by explicitly setting it to 'true'
+        if response.headers['Access-Control-Allow-Credentials'] != 'true':
+            # Remove the existing header
+            del response.headers['Access-Control-Allow-Credentials']
+            # Set it correctly
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+    # Otherwise, for OPTIONS requests, make sure it's set
+    elif request.method == 'OPTIONS':
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
         
     return response
 
