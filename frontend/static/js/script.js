@@ -136,6 +136,9 @@ function checkAuthStatus() {
 /**
  * Fetch user's activities from Strava
  */
+/**
+ * Fetch user's activities from Strava with improved error handling
+ */
 async function fetchActivities() {
     try {
         console.log("Fetching activities...");
@@ -143,64 +146,15 @@ async function fetchActivities() {
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
-        // Add retry logic
-        let retries = 0;
-        const maxRetries = 2;
-        let success = false;
-        let response;
+        // Simplified fetch call with minimal headers to avoid CORS issues
+        const response = await fetch(`${BACKEND_URL}/activities`, {
+            method: "GET",
+            credentials: "include"  // Ensures cookies are sent
+            // No additional headers to avoid triggering preflight requests
+        });
 
-        while (!success && retries <= maxRetries) {
-            try {
-                if (retries > 0) {
-                    console.log(`Retry attempt ${retries}/${maxRetries}...`);
-                    // Add a small delay between retries
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-
-                response = await fetch(`${BACKEND_URL}/activities`, {
-                    method: "GET",
-                    credentials: "include",  // Ensures cookies are sent
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
-                });
-                
-                if (response.ok) {
-                    success = true;
-                } else {
-                    retries++;
-                    
-                    // If we get a 401, try to refresh the session
-                    if (response.status === 401 && retries <= maxRetries) {
-                        console.log("Session may be expired, checking status...");
-                        
-                        const statusResp = await fetch(`${BACKEND_URL}/api/session-status`, {
-                            method: "GET",
-                            credentials: "include",
-                            headers: {
-                                'Cache-Control': 'no-cache',
-                                'Pragma': 'no-cache'
-                            }
-                        });
-                        
-                        if (!statusResp.ok || !(await statusResp.json()).authenticated) {
-                            throw new Error("Session expired or invalid");
-                        }
-                    }
-                }
-            } catch (retryError) {
-                retries++;
-                console.error(`Fetch retry ${retries} failed:`, retryError);
-                
-                if (retries > maxRetries) {
-                    throw retryError;
-                }
-            }
-        }
-
-        if (!success) {
-            console.error(`❌ Error fetching activities after ${maxRetries} retries: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+            console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
 
             if (response.status === 401) {
                 console.log("Session expired, showing login prompt");
@@ -243,24 +197,16 @@ async function fetchActivities() {
 
     } catch (error) {
         console.error("❌ Network error fetching activities:", error);
-        document.getElementById("activityList").innerHTML = 
-            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         
-        // Add more helpful message for CORS errors
+        // Add more detailed error message for CORS errors
         if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
             document.getElementById("activityList").innerHTML = 
-                `<tr><td colspan='4'>CORS error: The server is not accessible from this domain. Please check server configuration.</td></tr>`;
+                `<tr><td colspan='4'>Connection error: Unable to reach the server. If this persists, please try again later.</td></tr>`;
             
-            showMessage("CORS error: Unable to connect to the server. This may be a temporary issue or a server configuration problem.", "error");
-        }
-        
-        // Check if this is a session error and offer relogin
-        if (error.message.includes("Session expired") || error.message.includes("401")) {
-            showMessage("Your session has expired. Please log in again.", "error");
-            setTimeout(() => {
-                document.getElementById("authSection").classList.remove("hidden");
-                document.getElementById("activitySection").classList.add("hidden");
-            }, 2000);
+            showMessage("Connection error: Unable to reach the server. This may be a temporary issue.", "error");
+        } else {
+            document.getElementById("activityList").innerHTML = 
+                `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         }
     }
 }

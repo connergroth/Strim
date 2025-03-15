@@ -74,29 +74,27 @@ app.config["SESSION_COOKIE_PATH"] = "/"
 app.config["SESSION_COOKIE_DOMAIN"] = None  # Allow the browser to decide based on same-origin policy
 
 # And ensure your CORS configuration includes 'credentials' support
-CORS(app, 
-    supports_credentials=True,  
-    origins=[
-        "https://strimrun.vercel.app",
-        "https://strim-conner-groths-projects.vercel.app",
-        # Add localhost for development
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5000"
-    ],
-    allow_headers=[
-        "Content-Type", 
-        "Authorization", 
-        "X-Requested-With", 
-        "Accept", 
-        "Origin", 
-        "Cache-Control"  
-    ],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    expose_headers=["Content-Type", "X-CSRFToken", "Set-Cookie"],  # Expose Set-Cookie header
-    max_age=600,
-    vary_header=True
+cors = CORS()
+cors.init_app(
+    app,
+    resources={r"/*": {
+        "origins": [
+            "https://strimrun.vercel.app",
+            "https://strim-conner-groths-projects.vercel.app",
+        ],
+        "supports_credentials": True,
+        "allow_headers": [
+            "Content-Type", 
+            "Authorization", 
+            "X-Requested-With", 
+            "Accept", 
+            "Origin", 
+            "Cache-Control"  
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "expose_headers": ["Content-Type", "X-CSRFToken"],
+        "max_age": 600
+    }}
 )
 
 # Initialize Flask-Session
