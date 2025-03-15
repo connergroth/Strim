@@ -10,6 +10,7 @@ import logging
 import time
 import sys
 import os
+import urllib.parse  
 
 import api_utils
 import trimmer
@@ -64,7 +65,7 @@ if not app.config["SECRET_KEY"]:
     
 app.config["SESSION_TYPE"] = "redis"
 app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+app.config["SESSION_LIFETIME"] = timedelta(days=7)
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
@@ -264,13 +265,17 @@ def strava_callback():
         app.logger.info(f"✅ Session created: {masked_session}")
         app.logger.info(f"✅ Session ID: {request.cookies.get('session', 'unknown')}")
         
-        # Create explicit response to set cookies properly
-        resp = redirect(f"{FRONTEND_URL}?auth_success=true")
+        # NEW: Include token in redirect to frontend
+        # This is the key change to solve the session persistence issue
+        token = token_data["access_token"]
+        encoded_token = urllib.parse.quote(token)
+        redirect_url = f"{FRONTEND_URL}?auth_success=true&token={encoded_token}"
         
-        # Log the redirect URL
-        app.logger.info(f"🔀 Redirecting to: {FRONTEND_URL}?auth_success=true")
+        # Log the redirect URL (mask the token)
+        masked_redirect = redirect_url.replace(encoded_token, "***MASKED***")
+        app.logger.info(f"🔀 Redirecting to: {masked_redirect}")
         
-        return resp
+        return redirect(redirect_url)
     except requests.exceptions.RequestException as e:
         app.logger.error(f"❌ Network error during Strava token request: {str(e)}")
         return redirect(f"{FRONTEND_URL}?auth_error=network_error&message={str(e)}")
@@ -320,7 +325,8 @@ def session_status():
         return jsonify({
             "authenticated": True,
             "athlete": session.get("athlete"),
-            "expires_at": session.get("expires_at")
+            "expires_at": session.get("expires_at"),
+            "token": session.get("strava_token")  # NEW: Include token in response
         })
     else:
         app.logger.info("❌ User is NOT authenticated (no token in session)")
@@ -331,6 +337,8 @@ def get_activities():
     """Retrieve user activities from Strava API."""
     app.logger.info(f"📝 Request to /activities - Session data: {dict(session)}")
     app.logger.info(f"🍪 Request cookies: {request.cookies}")
+    app.logger.info(f"🔑 Auth header: {request.headers.get('Authorization')}")
+    app.logger.info(f"🔑 Query params: {dict(request.args)}")
     
     # Check for token in multiple places
     token = None
@@ -415,8 +423,31 @@ def get_activities():
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
     try:
-        if "strava_token" not in session:
-            return jsonify({"error": "Unauthorized"}), 401
+        # Check for token in multiple places (similar to /activities)
+        token = None
+        
+        # 1. Check session first
+        if "strava_token" in session:
+            token = session["strava_token"]
+            app.logger.info("✅ Using token from session for download-fit")
+        
+        # 2. Check Authorization header as fallback
+        if not token:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+                app.logger.info("✅ Using token from Authorization header for download-fit")
+        
+        # 3. Check query parameters as last resort
+        if not token:
+            token = request.args.get('token')
+            if token:
+                app.logger.info("✅ Using token from query parameter for download-fit")
+        
+        # If still no token, return unauthorized
+        if not token:
+            app.logger.error("❌ No valid token found for download-fit")
+            return jsonify({"error": "Unauthorized. No valid token."}), 401
 
         activity_id = request.args.get("activity_id")
         edit_distance = request.args.get("edit_distance") == "true"
@@ -428,11 +459,11 @@ def download_fit():
         if edit_distance and (not new_distance or float(new_distance) <= 0):
             return jsonify({"error": "Invalid new distance provided"}), 400
 
-        # Get Access Token
-        access_token = api_utils.get_access_token()
+        # Use the token directly instead of relying on the session
+        access_token = token
 
         # Get activity details before deletion
-        activity_metadata = api_utils.get_activity_details(activity_id)
+        activity_metadata = api_utils.get_activity_details(activity_id, access_token)
         if not activity_metadata:
             return jsonify({"error": "Failed to retrieve activity details"}), 500
 
@@ -486,8 +517,31 @@ def activity_selection():
 @app.route("/update-distance", methods=["POST"])
 def update_distance():
     """Update activity distance and re-upload to Strava."""
-    if "strava_token" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    # Check for token in multiple places (similar to other routes)
+    token = None
+    
+    # 1. Check session first
+    if "strava_token" in session:
+        token = session["strava_token"]
+        app.logger.info("✅ Using token from session for update-distance")
+    
+    # 2. Check Authorization header as fallback
+    if not token:
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            app.logger.info("✅ Using token from Authorization header for update-distance")
+    
+    # 3. Check body parameters as last resort for POST
+    if not token and request.is_json:
+        token = request.json.get('token')
+        if token:
+            app.logger.info("✅ Using token from request body for update-distance")
+    
+    # If still no token, return unauthorized
+    if not token:
+        app.logger.error("❌ No valid token found for update-distance")
+        return jsonify({"error": "Unauthorized. No valid token."}), 401
 
     data = request.json
     activity_id = data.get("activity_id")
@@ -496,10 +550,10 @@ def update_distance():
     if not activity_id or not new_distance:
         return jsonify({"error": "Missing required data"}), 400
 
-    access_token = api_utils.get_access_token()
+    access_token = token
 
     # Fetch existing activity details
-    activity_metadata = api_utils.get_activity_details(activity_id)
+    activity_metadata = api_utils.get_activity_details(activity_id, access_token)
     if not activity_metadata:
         return jsonify({"error": "Failed to fetch activity details"}), 500
 
@@ -524,7 +578,6 @@ def logout():
     session.clear()
     return jsonify({"success": "Logged out"}), 200
 
-# Add a special route to check if the API is accessible without auth
 @app.route("/api/ping", methods=["GET", "OPTIONS"])
 def ping():
     """Simple endpoint to check if the API is accessible."""
@@ -558,7 +611,6 @@ def inject_env_variables():
         "ENVIRONMENT": "production"
     }
 
-# Add a diagnostic route to check environment variables
 @app.route("/api/check-env", methods=["GET"])
 def check_env():
     """Check environment variables (admin only)."""
