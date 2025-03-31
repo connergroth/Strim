@@ -7,7 +7,7 @@
 
     <!-- External Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Favicons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/static/assets/apple-touch-icon.png">
@@ -26,13 +26,20 @@
 
     <!-- Authentication Section -->
     <div id="authSection">
-        <img src="/static/assets/strim-logo.jpg" alt="Strim Logo" class="logo">
-        <br>
-        <a href="#" id="stravaAuthLink">
-            <img src="/static/assets/btn_strava_connectwith_orange@2x.png" 
-                 alt="Connect with Strava" 
-                 class="strava-login-button">
-        </a>
+        <div class="auth-container">
+            <img src="/static/assets/strim-logo.jpg" alt="Strim Logo" class="logo">
+            <p class="auth-tagline">Automatically trim stopped time from your Strava activities</p>
+            
+            <a href="#" id="stravaAuthLink">
+                <img src="/static/assets/btn_strava_connectwith_orange@2x.png" 
+                     alt="Connect with Strava" 
+                     class="strava-login-button">
+            </a>
+            
+            <div class="auth-info">
+                <p>Strim helps you clean up your running activities by removing excess stopped time and optionally adjusting distances.</p>
+            </div>
+        </div>
     </div>
 
     <!-- Activity Selection Section (Hidden Until Logged In) -->
@@ -69,7 +76,7 @@
             <div class="activity-option">
                 <label>
                     <input type="checkbox" id="editDistanceCheckbox" onchange="toggleDistanceInput()">
-                    Edit Distance?
+                    Edit Distance
                 </label>
             </div>
         
@@ -79,70 +86,26 @@
             </div>
         </div>
     
-        <button id="trimActivityButton" onclick="trimActivity()">Trim Activity</button>
+        <button id="trimActivityButton" onclick="trimActivity()">
+            <i class="fas fa-scissors"></i> Trim Activity
+        </button>
     </div>
 
     <div class="steps">
-        <div class="step"><span class="step-number">1</span> Login to Strava to provide access to your activity.</div>
-        <div class="step"><span class="step-number">2</span> Select an activity to trim.</div>
-        <div class="step"><span class="step-number">3</span> Strava Trimmer will remove excess stopped time.</div>
-        <div class="step"><span class="step-number">4</span> The corrected activity will be uploaded back to Strava!</div>
+        <div class="step"><span class="step-number">1</span> Log in with Strava to provide access to your activities</div>
+        <div class="step"><span class="step-number">2</span> Select an activity to trim from your Strava account</div>
+        <div class="step"><span class="step-number">3</span> Strim will automatically remove excess stopped time</div>
+        <div class="step"><span class="step-number">4</span> The corrected activity will be uploaded back to your Strava account</div>
     </div>
 
     <div class="footer">
-        <p>Created by <strong>Conner Groth</strong> |
-            <a href="https://github.com/connergroth" target="_blank">
-                <i class="fab fa-github" style="font-size: 20px;"></i>
+        <p>Created by <strong>Conner Groth</strong> 
+            <a href="https://github.com/connergroth" target="_blank" aria-label="GitHub Profile">
+                <i class="fab fa-github"></i>
             </a>
         </p>
         <img src="/static/assets/api_logo_pwrdBy_strava_horiz_gray.png" 
              alt="Powered by Strava" class="strava-logo">
     </div>
-
-    <style>
-        /* This ensures the activity section is hidden by default */
-        #activitySection.hidden {
-            display: none !important;
-        }
-        #message:empty {
-            display: none !important;
-        }
-        .hidden {
-            display: none !important;
-        }
-        /* Message styling */
-        #message {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 24px;
-            border-radius: 4px;
-            z-index: 1000;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            max-width: 90%;
-            text-align: center;
-        }
-        #message.success {
-            background-color: #4CAF50;
-            color: white;
-        }
-        #message.error {
-            background-color: #F44336;
-            color: white;
-        }
-        #message.info {
-            background-color: #2196F3;
-            color: white;
-        }
-        /* Add a link style for message links */
-        #message a {
-            color: white;
-            text-decoration: underline;
-        }
-        #message a:hover {
-            text-decoration: none;
-        }
-    </style>
 </body>
 </html>
