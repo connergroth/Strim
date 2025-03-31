@@ -373,3 +373,245 @@ td input[type="radio"] {
         gap: 10px;
     }
 }
+
+:root {
+    --primary-color: #fc4c02;
+    --primary-hover: #e34500;
+    --dark-gray: #444;
+    --light-gray: #f9f9f9;
+    --border-color: #ddd;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --info-color: #17a2b8;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: var(--light-gray);
+    color: var(--dark-gray);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.strava-login-button {
+    max-width: 250px;
+    margin: 20px 0;
+    transition: transform 0.3s ease;
+}
+
+.strava-login-button:hover {
+    transform: scale(1.05);
+}
+
+#authSection {
+    text-align: center;
+    margin: 40px auto;
+    padding: 30px;
+    max-width: 500px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+    max-width: 200px;
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: white;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: var(--light-gray);
+    font-weight: 600;
+}
+
+tr:hover {
+    background-color: rgba(252, 76, 2, 0.05);
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: var(--primary-hover);
+}
+
+button:disabled {
+    background-color: var(--border-color);
+    cursor: not-allowed;
+}
+
+#logoutButton {
+    background-color: var(--dark-gray);
+}
+
+#logoutButton:hover {
+    background-color: #333;
+}
+
+.activity-options {
+    margin-bottom: 20px;
+}
+
+.activity-option {
+    margin-bottom: 10px;
+}
+
+#distanceInputContainer {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: var(--light-gray);
+    border-radius: 4px;
+}
+
+input[type="number"] {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    width: 150px;
+}
+
+.steps {
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+.step {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 3px solid var(--primary-color);
+    background-color: var(--light-gray);
+    border-radius: 0 4px 4px 0;
+}
+
+.step-number {
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    line-height: 25px;
+    text-align: center;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.footer {
+    margin-top: auto;
+    text-align: center;
+    padding: 20px;
+    color: var(--dark-gray);
+}
+
+.strava-logo {
+    max-width: 140px;
+    margin-top: 10px;
+}
+
+/* Message styling */
+#message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.message.success {
+    background-color: var(--success-color);
+}
+
+.message.error {
+    background-color: var(--error-color);
+}
+
+.message.info {
+    background-color: var(--info-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container, .steps {
+        padding: 15px;
+    }
+    
+    th, td {
+        padding: 8px 10px;
+    }
+    
+    .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    #logoutButton {
+        margin-top: 10px;
+    }
+}
+
+/* Make sure these important visibility classes are always honored */
+.hidden {
+    display: none !important;
+}
+
+#message:empty {
+    display: none !important;
+}

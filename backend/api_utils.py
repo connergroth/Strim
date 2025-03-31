@@ -43,8 +43,10 @@ def delete_activity(activity_id, access_token):
         print(f"Failed to delete activity {activity_id}")
         return False
     
-def get_activity_details(activity_id):
-    access_token = get_access_token()
+def get_activity_details(activity_id, access_token=None):
+    if access_token is None:
+        access_token = get_access_token()
+    
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
