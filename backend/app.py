@@ -83,11 +83,10 @@ cors.init_app(
         "origins": [
             "https://strimrun.vercel.app",
             "https://strim-conner-groths-projects.vercel.app",
-            # Add localhost for development
             "http://localhost:3000",
             "http://127.0.0.1:3000"
         ],
-        "supports_credentials": True,  # Critical for cookies
+        "supports_credentials": True,  
         "allow_headers": [
             "Content-Type", 
             "Authorization", 
