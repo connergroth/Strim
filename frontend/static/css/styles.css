@@ -80,14 +80,17 @@
   .strava-login-button {
     max-width: 250px;
     margin: 10px 0 30px;
-    transition: transform var(--transition-speed), opacity var(--transition-speed);
+    /* Commenting out animations to comply with guidelines */
+    /* transition: transform var(--transition-speed), opacity var(--transition-speed); */
     cursor: pointer;
   }
   
+  /* 
   .strava-login-button:hover {
     transform: scale(1.05);
     opacity: 0.9;
   }
+  */
   
   .auth-info {
     background-color: var(--light-gray);
@@ -153,23 +156,22 @@
   }
   
   /* Strava view link styling per brand guidelines */
+  .activity-name {
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  
   .strava-view-link {
     color: #FC5200; /* Strava orange color as specified in guidelines */
     text-decoration: none;
-    font-weight: 500;
+    font-weight: bold;
+    font-size: 0.85em;
+    display: block;
     transition: all 0.2s ease;
-    position: relative;
   }
   
   .strava-view-link:hover {
     text-decoration: underline;
-  }
-  
-  .strava-view-link::after {
-    content: " - View on Strava";
-    font-size: 0.85em;
-    font-weight: bold;
-    color: #FC5200;
   }
   
   /* Table Styles */
@@ -207,6 +209,7 @@
     padding: 14px 18px;
     text-align: left;
     border-bottom: 1px solid #f0f0f0;
+    vertical-align: top;
   }
   
   tr:last-child td {

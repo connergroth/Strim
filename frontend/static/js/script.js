@@ -267,12 +267,14 @@ function displayActivities(activities) {
             activityIcon = '<i class="fas fa-running"></i> ';
         }
         
-        // Create activity link with "View on Strava" text format
-        const activityName = `${activityIcon}${activity.name}`;
-        const viewOnStravaLink = `<a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">${activityName}</a>`;
+        // Create activity display with "View on Strava" link separated below
+        const activityDisplay = `
+            <div class="activity-name">${activityIcon}${activity.name}</div>
+            <a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">View on Strava</a>
+        `;
         
         row.innerHTML = `
-            <td>${viewOnStravaLink}</td>
+            <td>${activityDisplay}</td>
             <td>${activity.distance_miles.toFixed(2)}</td>
             <td>${formattedDate}</td>
             <td>
