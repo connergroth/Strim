@@ -210,17 +210,13 @@ async function fetchActivities() {
             
         console.log(`📡 Making request to: ${token ? `${BACKEND_URL}/activities?token=***MASKED***` : url}`);
 
-        // Make request with token in URL and also in Authorization header
-        const headers = token && !url.includes('token=') 
-        ? { 'Authorization': `Bearer ${token}` } 
-        : {};
-
+        // Make request WITHOUT Authorization header since we're using URL parameter
         const response = await fetch(url, {
             method: "GET",
-            credentials: "include",
-            headers: headers
+            credentials: "include"  // Still include credentials for cookies
+            // No Authorization header
         });
-
+        
         if (!response.ok) {
             console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
 
