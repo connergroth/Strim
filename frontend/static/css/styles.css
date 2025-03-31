@@ -520,8 +520,8 @@
     text-align: center;
     background-color: white;
     border-top: 1px solid var(--border-color);
-  }
-  
+  }   
+
   .creator-info {
     display: flex;
     align-items: center;
@@ -531,7 +531,18 @@
     color: var(--medium-gray);
     font-size: 14px;
   }
-  
+
+  .creator-info a {
+    color: var(--dark-gray);
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+
+  .creator-info a:hover {
+    color: var(--strava-orange);
+    text-decoration: underline;
+  }
+
   .github-link {
     display: flex;
     align-items: center;
@@ -544,22 +555,21 @@
     border-radius: 50%;
     background-color: #f5f5f5;
   }
-  
+
   .github-link i {
     font-size: 18px;
   }
-  
+
   .github-link:hover {
     color: white;
     background-color: var(--strava-orange);
     transform: translateY(-2px);
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
   }
-  
+
   .strava-logo {
     max-width: 140px;
     opacity: 0.9;
-    /* Remove transition effects to comply with "Never modify, alter or animate Strava logos" */
   }
   
   /* Empty State */
