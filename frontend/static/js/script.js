@@ -318,7 +318,7 @@ function displayActivities(activities) {
             actionRow.innerHTML = `
                 <td colspan="4">
                     <button id="toggleActivitiesBtn" class="toggle-activities-btn">
-                        ${actionText} <i class="fas ${actionIcon}"></i>
+                        <span>${actionText}</span> <i class="fas ${actionIcon}"></i>
                     </button>
                 </td>
             `;

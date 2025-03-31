@@ -127,6 +127,50 @@
     font-size: 26px;
     font-weight: 700;
   }
+
+  /* Show More/Less Button */
+.show-more-row {
+    background-color: transparent !important;
+  }
+  
+  .show-more-row:hover {
+    background-color: transparent !important;
+  }
+  
+  .toggle-activities-btn {
+    width: 100%;
+    padding: 12px 16px;
+    background-color: white;
+    border: none;
+    border-radius: 8px;
+    color: var(--medium-gray);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    margin: 5px 0;
+  }
+  
+  .toggle-activities-btn:hover {
+    background-color: #f7f7f7;
+    color: var(--strava-orange);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  .toggle-activities-btn i {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+  }
+  
+  .toggle-activities-btn:hover i {
+    transform: translateY(2px);
+  }
   
   #logoutButton {
     display: flex;
