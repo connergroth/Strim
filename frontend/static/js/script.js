@@ -1,35 +1,30 @@
-// Import configuration from module
-import config from './config.js';
+// Constants
+const BACKEND_URL = "https://strim-production.up.railway.app";
+const FRONTEND_URL = "https://strimrun.vercel.app";
+const TOKEN_STORAGE_KEY = "strava_token";
 
-// Get backend and frontend URLs from config
-const BACKEND_URL = config.getBackendURL();
-const FRONTEND_URL = config.getFrontendURL();
-
-// Token storage key
-const TOKEN_STORAGE_KEY = 'strava_token';
-
-// Global variables for selected activity
+// Global variables to track state
 let selectedActivityId = null;
 let selectedActivityDistance = null;
 
 /**
- * Show a message to the user with improved handling of empty messages
- * @param {string} text - The message text to display
- * @param {string} type - The message type (success, error, info)
+ * Shows a message to the user
+ * @param {string} text - Message text
+ * @param {string} type - Message type (success, error, info)
  */
 function showMessage(text, type = "info") {
     const message = document.getElementById("message");
     if (!message) return;
     
     if (!text || text.trim() === "") {
-        // If no message, completely hide the element
+        // If no message, hide the element
         message.textContent = "";
         message.style.display = "none";
         message.className = "";
         return;
     }
     
-    // Otherwise show the message properly
+    // Show the message
     message.textContent = text;
     message.style.display = "block";
     message.className = type || "info";
@@ -38,22 +33,22 @@ function showMessage(text, type = "info") {
     if (type === "success" || type === "info") {
         setTimeout(() => {
             if (message.textContent === text) {
-                message.style.display = "none";
+                showMessage(""); // Clear the message
             }
         }, 5000);
     }
 }
 
 /**
- * Get stored authentication token
- * @returns {string|null} - The stored token or null if not found
+ * Get token from localStorage
+ * @returns {string|null} The stored token or null
  */
 function getStoredToken() {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
 /**
- * Store authentication token
+ * Store token in localStorage
  * @param {string} token - The token to store
  */
 function storeToken(token) {
@@ -64,7 +59,7 @@ function storeToken(token) {
 }
 
 /**
- * Clear stored authentication token
+ * Remove token from localStorage
  */
 function clearToken() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -72,12 +67,28 @@ function clearToken() {
 }
 
 /**
- * Check if user is authenticated and redirect if needed
+ * Show authentication section, hide activity section
+ */
+function showAuthSection() {
+    document.getElementById("authSection").classList.remove("hidden");
+    document.getElementById("activitySection").classList.add("hidden");
+}
+
+/**
+ * Show activity section, hide authentication section
+ */
+function showActivitySection() {
+    document.getElementById("authSection").classList.add("hidden");
+    document.getElementById("activitySection").classList.remove("hidden");
+}
+
+/**
+ * Check authentication status and show appropriate section
  */
 function checkAuthStatus() {
     console.log("Checking authentication status...");
     
-    // First, check for auth success/error URL parameters (from redirect)
+    // Check for URL parameters from OAuth redirect
     const urlParams = new URLSearchParams(window.location.search);
     const authSuccess = urlParams.get("auth_success");
     const authError = urlParams.get("auth_error");
@@ -86,38 +97,27 @@ function checkAuthStatus() {
     
     // If token is in URL, store it
     if (token) {
-        console.log("✅ Token found in URL, storing in localStorage");
+        console.log("✅ Token found in URL parameters");
         storeToken(token);
     }
     
-    // Remove query parameters from URL to prevent issues on refresh
+    // Remove query parameters from URL
     if (authSuccess || authError || token) {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // Handle auth error from redirect
+    // Handle authentication error
     if (authError) {
         console.error(`❌ Authentication error: ${authError}`);
-        if (errorMsg) {
-            console.error(`Error details: ${errorMsg}`);
-        }
-        
-        // Display error message to user
-        showMessage(`Authentication failed: ${authError}. Please try again.`, "error");
-        
-        // Ensure auth section is visible
+        showMessage(`Authentication failed: ${authError}${errorMsg ? ` (${errorMsg})` : ''}. Please try again.`, "error");
         showAuthSection();
         return;
     }
     
-    // If auth_success=true is in URL, we just completed authentication
+    // Handle successful authentication
     if (authSuccess === "true") {
-        console.log("✅ Authentication successful from redirect");
-        
-        // Show a success message briefly
-        showMessage("Successfully authenticated with Strava!", "success");
-        
-        // Show activity section and fetch activities
+        console.log("✅ Authentication successful");
+        showMessage("Successfully connected with Strava!", "success");
         showActivitySection();
         fetchActivities();
         return;
@@ -126,68 +126,14 @@ function checkAuthStatus() {
     // Check if we have a token in localStorage
     const storedToken = getStoredToken();
     if (storedToken) {
-        console.log("✅ Found token in localStorage, using it");
+        console.log("✅ Found token in localStorage");
         showActivitySection();
         fetchActivities();
         return;
     }
     
-    // If no token in localStorage, check session status from backend
-    console.log("No stored token, checking session status quietly...");
-    
-    fetch(`${BACKEND_URL}/api/session-status`, {
-        method: "GET",
-        credentials: "include"  // Send cookies with request
-    })
-    .then(response => {
-        if (!response.ok) {
-            console.log(`Auth check returned ${response.status} - not authenticated`);
-            showAuthSection();
-            return null;
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (!data) return; // Skip if response wasn't ok
-        
-        console.log("Auth status response:", data);
-        if (data.authenticated) {
-            console.log("✅ User is authenticated");
-            
-            // Store token in localStorage if provided
-            if (data.token) {
-                console.log("✅ Storing token from session in localStorage");
-                storeToken(data.token);
-            }
-            
-            // Show the activity section
-            showActivitySection();
-            fetchActivities();
-        } else {
-            console.log(`❌ User is NOT authenticated: ${data.reason || 'unknown reason'}`);
-            showAuthSection();
-        }
-    })
-    .catch(error => {
-        console.error("Error checking auth status:", error);
-        showAuthSection();
-    });
-}
-
-/**
- * Show authentication section and hide activity section
- */
-function showAuthSection() {
-    document.getElementById("authSection").classList.remove("hidden");
-    document.getElementById("activitySection").classList.add("hidden");
-}
-
-/**
- * Show activity section and hide authentication section
- */
-function showActivitySection() {
-    document.getElementById("authSection").classList.add("hidden");
-    document.getElementById("activitySection").classList.remove("hidden");
+    // No token, show auth section
+    showAuthSection();
 }
 
 /**
@@ -203,99 +149,102 @@ async function fetchActivities() {
         // Get token from localStorage
         const token = getStoredToken();
         
-        // Create URL with token parameter
-        const url = token 
-            ? `${BACKEND_URL}/activities?token=${encodeURIComponent(token)}` 
-            : `${BACKEND_URL}/activities`;
-            
-        console.log(`📡 Making request to: ${token ? `${BACKEND_URL}/activities?token=***MASKED***` : url}`);
-
-        // Make request WITHOUT Authorization header since we're using URL parameter
-        const response = await fetch(url, {
-            method: "GET",
-            credentials: "include"  // Still include credentials for cookies
-            // No Authorization header
-        });
-        
-        if (!response.ok) {
-            console.error(`❌ Error fetching activities: ${response.status} ${response.statusText}`);
-
-            if (response.status === 401) {
-                console.log("Session expired, showing login prompt");
-                clearToken(); // Clear invalid token
-                showMessage("Session expired. Please log in again.", "error");
-                
-                // Wait a moment before redirecting
-                setTimeout(() => {
-                    showAuthSection();
-                }, 2000);
-            } else {
-                document.getElementById("activityList").innerHTML = 
-                    `<tr><td colspan='4'>Error loading activities: ${response.status} ${response.statusText}</td></tr>`;
-            }
+        if (!token) {
+            console.error("No token available");
+            showMessage("Authentication required. Please log in with Strava.", "error");
+            showAuthSection();
             return;
+        }
+        
+        // Create URL with token parameter only
+        const url = `${BACKEND_URL}/activities?token=${encodeURIComponent(token)}`;
+        console.log(`📡 Making request to: ${BACKEND_URL}/activities?token=***MASKED***`);
+
+        // Make request without Authorization header to avoid CORS preflight
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            console.error(`Server error: ${response.status} ${response.statusText}`);
+            
+            if (response.status === 401) {
+                clearToken();
+                showMessage("Authentication expired. Please log in again.", "error");
+                showAuthSection();
+                return;
+            }
+            
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
-        console.log("✅ Fetched activities:", data);
+        console.log(`✅ Retrieved ${data.activities ? data.activities.length : 0} activities`);
 
-        // If token is in the response, store it
+        // Update token if provided in response
         if (data.token) {
-            console.log("✅ Updating token from activities response");
             storeToken(data.token);
         }
 
+        // Display activities or show message if none found
         if (!data.activities || data.activities.length === 0) {
             document.getElementById("activityList").innerHTML = 
-                "<tr><td colspan='4'>No activities found. Make sure you have running activities on Strava.</td></tr>";
+                "<tr><td colspan='4'>No running activities found. Make sure you have running activities on Strava.</td></tr>";
             return;
         }
 
-        const activityList = document.getElementById("activityList");
-        activityList.innerHTML = "";
-
-        data.activities.forEach(activity => {
-            let row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${activity.name}</td>
-                <td>${activity.distance_miles.toFixed(2)}</td>
-                <td>${new Date(activity.date).toLocaleDateString()}</td>
-                <td>
-                    <input type="radio" 
-                           name="selectedActivity" 
-                           value="${activity.id}" 
-                           data-distance="${activity.distance_miles.toFixed(2)}"
-                           onchange="window.selectActivity('${activity.id}', ${activity.distance_miles.toFixed(2)})">
-                </td>
-            `;
-            activityList.appendChild(row);
-        });
-
+        // Display activities in the table
+        displayActivities(data.activities);
     } catch (error) {
-        console.error("❌ Network error fetching activities:", error);
+        console.error("❌ Error fetching activities:", error);
         
-        if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
-            document.getElementById("activityList").innerHTML = 
-                `<tr><td colspan='4'>Connection error: Unable to reach the server. If this persists, please try again later.</td></tr>`;
+        document.getElementById("activityList").innerHTML = 
+            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
             
-            showMessage("Connection error: Unable to reach the server. This may be a temporary issue.", "error");
-        } else {
-            document.getElementById("activityList").innerHTML = 
-                `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
-        }
+        showMessage(`Error loading activities: ${error.message}`, "error");
     }
 }
 
 /**
- * Set selected activity
+ * Display activities in the table
+ * @param {Array} activities - List of activities
+ */
+function displayActivities(activities) {
+    const activityList = document.getElementById("activityList");
+    activityList.innerHTML = "";
+
+    activities.forEach(activity => {
+        const row = document.createElement("tr");
+        
+        // Format date
+        const activityDate = new Date(activity.date);
+        const formattedDate = activityDate.toLocaleDateString();
+        
+        row.innerHTML = `
+            <td>${activity.name}</td>
+            <td>${activity.distance_miles.toFixed(2)}</td>
+            <td>${formattedDate}</td>
+            <td>
+                <input type="radio" 
+                       name="selectedActivity" 
+                       value="${activity.id}"
+                       data-distance="${activity.distance_miles.toFixed(2)}"
+                       onclick="selectActivity('${activity.id}', ${activity.distance_miles.toFixed(2)})">
+            </td>
+        `;
+        
+        activityList.appendChild(row);
+    });
+}
+
+/**
+ * Select an activity
  * @param {string} id - Activity ID
- * @param {number} distance - Activity distance in miles
+ * @param {number} distance - Activity distance
  */
 function selectActivity(id, distance) {
     selectedActivityId = id;
     selectedActivityDistance = distance;
     
-    // Set the current distance as the default value for the input field
+    // Pre-fill distance field
     const distanceInput = document.getElementById("newDistance");
     if (distanceInput) {
         distanceInput.value = distance;
@@ -305,7 +254,7 @@ function selectActivity(id, distance) {
 }
 
 /**
- * Toggle distance input visibility based on checkbox
+ * Toggle distance input visibility
  */
 function toggleDistanceInput() {
     const editDistanceChecked = document.getElementById("editDistanceCheckbox").checked;
@@ -313,10 +262,10 @@ function toggleDistanceInput() {
 }
 
 /**
- * Process selected activity and send to backend
+ * Process selected activity
  */
 async function trimActivity() {
-    // Check if an activity is selected
+    // Validate selection
     if (!selectedActivityId) {
         const selectedRadio = document.querySelector('input[name="selectedActivity"]:checked');
         if (selectedRadio) {
@@ -328,27 +277,37 @@ async function trimActivity() {
         }
     }
 
+    // Check if editing distance
     const editDistance = document.getElementById("editDistanceCheckbox").checked;
-    let newDistance = editDistance ? document.getElementById("newDistance").value : null;
-
-    if (editDistance && (!newDistance || parseFloat(newDistance) <= 0)) {
-        showMessage("Please enter a valid new distance (greater than zero).", "error");
-        return;
+    let newDistance = null;
+    
+    if (editDistance) {
+        newDistance = document.getElementById("newDistance").value;
+        if (!newDistance || parseFloat(newDistance) <= 0) {
+            showMessage("Please enter a valid distance greater than zero.", "error");
+            return;
+        }
     }
 
     try {
-        // Disable the trim button to prevent double submissions
+        // Disable button during processing
         const trimButton = document.getElementById("trimActivityButton");
         const originalButtonText = trimButton.textContent;
         trimButton.disabled = true;
         trimButton.textContent = "Processing...";
         
-        showMessage("Downloading and processing activity...", "info");
+        showMessage("Processing activity...", "info");
 
         // Get token from localStorage
         const token = getStoredToken();
         
-        // Build the URL with parameters
+        if (!token) {
+            showMessage("Authentication required. Please log in with Strava.", "error");
+            showAuthSection();
+            return;
+        }
+        
+        // Build URL with parameters
         let url = `${BACKEND_URL}/download-fit?activity_id=${selectedActivityId}`;
         
         if (editDistance) {
@@ -357,22 +316,15 @@ async function trimActivity() {
             url += `&edit_distance=false`;
         }
         
-        if (token) {
-            url += `&token=${encodeURIComponent(token)}`;
-        }
-
-        const headers = token && !url.includes('token=') 
-        ? { 'Authorization': `Bearer ${token}` } 
-        : {};
-
-        // Make the request
-        const response = await fetch(url, {
-            method: "GET",
-            credentials: "include",
-            headers: headers
-        });
+        // Add token as URL parameter
+        url += `&token=${encodeURIComponent(token)}`;
         
-        // Re-enable the button
+        console.log(`📡 Making trim request: ${url.replace(token, "***MASKED***")}`);
+
+        // Make request without Authorization header
+        const response = await fetch(url);
+        
+        // Re-enable button
         trimButton.disabled = false;
         trimButton.textContent = originalButtonText;
         
@@ -383,21 +335,29 @@ async function trimActivity() {
 
         const result = await response.json();
 
+        // Update token if provided
+        if (result.token) {
+            storeToken(result.token);
+        }
+
         if (result.success) {
-            showMessage("Activity successfully trimmed and uploaded to Strava!", "success");
+            // Show success message with link to view on Strava
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `
+                Activity successfully processed! 
+                <a href="https://www.strava.com/activities/${result.new_activity_id}" 
+                   target="_blank" style="margin-left: 10px; color: white; text-decoration: underline;">
+                   View on Strava
+                </a>
+            `;
             
-            // Add prompt to view on Strava
-            const viewOnStravaButton = document.createElement('button');
-            viewOnStravaButton.textContent = 'View on Strava';
-            viewOnStravaButton.style.marginLeft = '10px';
-            viewOnStravaButton.onclick = () => {
-                window.open(`https://www.strava.com/activities/${result.new_activity_id}`, '_blank');
-            };
+            const messageEl = document.getElementById('message');
+            messageEl.innerHTML = '';
+            messageEl.appendChild(messageDiv);
+            messageEl.className = 'success';
+            messageEl.style.display = 'block';
             
-            // Append the button to the message
-            document.getElementById('message').appendChild(viewOnStravaButton);
-            
-            // Refresh activities list with slight delay
+            // Refresh activities after a delay
             setTimeout(fetchActivities, 2000);
         } else {
             throw new Error(result.error || "Unknown error occurred");
@@ -409,33 +369,23 @@ async function trimActivity() {
 }
 
 /**
- * Handle logout - clears local storage and session
+ * Log out user
  */
 function logout() {
-    console.log("🔴 Logging out...");
+    console.log("Logging out...");
     showMessage("Logging out...", "info");
     
-    // Clear the token from localStorage
+    // Clear the token
     clearToken();
     
-    // Call the logout endpoint
+    // Also call the backend logout endpoint
     fetch(`${BACKEND_URL}/logout`, {
-        method: "POST",
-        credentials: "include" // Send cookies
-    })
-    .then(() => {
+        method: "POST"
+    }).catch(error => {
+        console.error("Error calling logout endpoint:", error);
+    }).finally(() => {
+        showAuthSection();
         showMessage("Logged out successfully", "success");
-        setTimeout(() => {
-            // Show login page
-            showAuthSection();
-        }, 1000);
-    })
-    .catch(error => {
-        console.error("Error logging out:", error);
-        showMessage("Error logging out", "error");
-        setTimeout(() => {
-            showAuthSection();
-        }, 1000);
     });
 }
 
@@ -446,15 +396,11 @@ function loginWithStrava() {
     window.location.href = `${BACKEND_URL}/auth`;
 }
 
-/**
- * Initialize the application
- */
-function initializeApp() {
-    console.log("Initializing app...");
-    console.log(`Backend URL: ${BACKEND_URL}`);
-    console.log(`Frontend URL: ${FRONTEND_URL}`);
+// Initialize the app when the document is loaded
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("Document loaded, initializing app...");
     
-    // Initialize message container
+    // Initialize the message element
     const message = document.getElementById("message");
     if (message) {
         message.style.display = "none";
@@ -463,10 +409,10 @@ function initializeApp() {
     
     // Set up event listeners
     
-    // Auth link
+    // Strava auth link
     const stravaAuthLink = document.getElementById("stravaAuthLink");
     if (stravaAuthLink) {
-        stravaAuthLink.addEventListener("click", (e) => {
+        stravaAuthLink.addEventListener("click", function(e) {
             e.preventDefault();
             loginWithStrava();
         });
@@ -490,25 +436,13 @@ function initializeApp() {
         logoutButton.addEventListener("click", logout);
     }
     
-    // Check auth status
+    // Check authentication status
     checkAuthStatus();
-}
+});
 
-// Initialize when the document is loaded
-document.addEventListener("DOMContentLoaded", initializeApp);
-
-// Make sure key functions are exposed to the global scope
+// Expose functions to the global scope
+window.selectActivity = selectActivity;
 window.toggleDistanceInput = toggleDistanceInput;
 window.trimActivity = trimActivity;
 window.logout = logout;
-window.selectActivity = selectActivity;
-
-// Export functions
-export {
-    showMessage,
-    checkAuthStatus,
-    fetchActivities,
-    toggleDistanceInput,
-    trimActivity,
-    logout
-};
+window.loginWithStrava = loginWithStrava;
