@@ -26,19 +26,53 @@ Strim is a tool that allows you to:
 ## 🌐 Frontend 
 - **HTML, CSS, JavaScript** - UI Components
 
-## 🔧 How It Works
-1. Connect your Strava account
-2. Select the activity you want to trim
-3. Adjust the distance and trim time
-4. Strim automatically updates your Strava activity
-
 ## 🖥️ Backend 
 - **Python** – Core backend language
 - **Flask** – Lightweight web framework
 - **Flask-Session** – Manages user sessions
 - **Gunicorn** – WSGI server for production
 - **Requests** – API communication with Strava
-
+  
 ## 📡 API Integrations
 - **Strava API** – Fetches user activities, deletes untrimmed activity, and reuploads the trimmed one.
 
+## 🔧 How It Works
+1. Connect your Strava account
+2. Select the activity you want to trim
+3. Adjust the distance and trim time
+4. Strim automatically updates your Strava activity
+
+## 🖥️ Local Development Setup  
+Prerequisites:  
+- Python 3.8+  
+- pip  
+- Virtual environment (recommended)  
+
+## Installation Steps  
+
+1. Clone the repository
+```
+git clone https://github.com/your-username/strim.git  
+cd strim  
+```
+2. Create a virtual environment  
+```
+python3 -m venv venv  
+source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+```
+3. Install dependencies
+```
+pip install -r requirements.txt
+```
+4. Set up Strava API Credentials
+- Create a .env file in the project root
+- Add your Strava API credentials:
+```
+STRAVA_CLIENT_ID=your_client_id  
+STRAVA_CLIENT_SECRET=your_client_secret  
+STRAVA_REDIRECT_URI=http://localhost:5000/exchange_token
+```
+5. Run the application
+```
+flask run
+```
