@@ -30,7 +30,19 @@ def get_access_token():
     print(f"New access token: {access_token}") 
     return access_token
 
-def delete_activity(activity_id, access_token):
+def delete_activity(activity_id, access_token=None):
+    """Delete an activity from Strava.
+    
+    Args:
+        activity_id: The ID of the activity to delete
+        access_token: Optional access token. If not provided, will fetch a new one.
+    
+    Returns:
+        bool: True if deletion was successful, False otherwise
+    """
+    if access_token is None:
+        access_token = get_access_token()
+        
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -44,9 +56,18 @@ def delete_activity(activity_id, access_token):
         return False
     
 def get_activity_details(activity_id, access_token=None):
+    """Get details of a specific activity.
+    
+    Args:
+        activity_id: The ID of the activity to get details for
+        access_token: Optional access token. If not provided, will fetch a new one.
+        
+    Returns:
+        dict: Activity data if successful, None otherwise
+    """
     if access_token is None:
         access_token = get_access_token()
-    
+        
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
