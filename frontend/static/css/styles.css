@@ -479,13 +479,24 @@ input[type="checkbox"]:disabled:checked {
 }
 
 .creator-info {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  color: var(--medium-gray);
-  font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    color: var(--medium-gray);
+    font-size: 14px;
+}
+
+.creator-info a {
+    color: var(--dark-gray);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.creator-info a:hover {
+    color: var(--strava-orange);
+    text-decoration: underline;
 }
 
 .github-link {
