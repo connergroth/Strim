@@ -243,62 +243,102 @@ async function fetchActivities() {
 function displayActivities(activities) {
     const activityList = document.getElementById("activityList");
     activityList.innerHTML = "";
-
-    activities.forEach(activity => {
-        const row = document.createElement("tr");
+    
+    // Variable to track if we're showing all activities or just recent ones
+    let showingAllActivities = false;
+    
+    // Function to render activities (either all or just recent ones)
+    const renderActivities = (activitiesToShow) => {
+        activityList.innerHTML = ""; // Clear the list first
         
-        // Format date
-        const activityDate = new Date(activity.date);
-        const formattedDate = activityDate.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-        
-        // Add activity type icon based on name
-        let activityIcon = '';
-        if (activity.name.toLowerCase().includes('night')) {
-            activityIcon = '<i class="fas fa-moon"></i> ';
-        } else if (activity.name.toLowerCase().includes('morning')) {
-            activityIcon = '<i class="fas fa-sun"></i> ';
-        } else if (activity.name.toLowerCase().includes('lunch')) {
-            activityIcon = '<i class="fas fa-utensils"></i> ';
-        } else {
-            activityIcon = '<i class="fas fa-running"></i> ';
-        }
-        
-        // Create activity display with "View on Strava" link separated below
-        const activityDisplay = `
-            <div class="activity-name">${activityIcon}${activity.name}</div>
-            <a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">View on Strava</a>
-        `;
-        
-        row.innerHTML = `
-            <td>${activityDisplay}</td>
-            <td>${activity.distance_miles.toFixed(2)}</td>
-            <td>${formattedDate}</td>
-            <td>
-                <input type="radio" 
-                       name="selectedActivity" 
-                       value="${activity.id}"
-                       data-distance="${activity.distance_miles.toFixed(2)}">
-            </td>
-        `;
-        
-        activityList.appendChild(row);
-        
-        // Add click handler to the row
-        row.addEventListener('click', function(e) {
-            // If click was not directly on the radio button, find the radio and click it
-            if (e.target.type !== 'radio') {
-                const radio = this.querySelector('input[type="radio"]');
-                if (radio) {
-                    radio.checked = true;
-                    selectActivity(activity.id, activity.distance_miles);
-                }
+        activitiesToShow.forEach(activity => {
+            const row = document.createElement("tr");
+            
+            // Format date
+            const activityDate = new Date(activity.date);
+            const formattedDate = activityDate.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            
+            // Add activity type icon based on name
+            let activityIcon = '';
+            if (activity.name.toLowerCase().includes('night')) {
+                activityIcon = '<i class="fas fa-moon"></i> ';
+            } else if (activity.name.toLowerCase().includes('morning')) {
+                activityIcon = '<i class="fas fa-sun"></i> ';
+            } else if (activity.name.toLowerCase().includes('lunch')) {
+                activityIcon = '<i class="fas fa-utensils"></i> ';
+            } else {
+                activityIcon = '<i class="fas fa-running"></i> ';
             }
+            
+            // Create activity display with "View on Strava" link separated below
+            const activityDisplay = `
+                <div class="activity-name">${activityIcon}${activity.name}</div>
+                <a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">View on Strava</a>
+            `;
+            
+            row.innerHTML = `
+                <td>${activityDisplay}</td>
+                <td>${activity.distance_miles.toFixed(2)}</td>
+                <td>${formattedDate}</td>
+                <td>
+                    <input type="radio" 
+                           name="selectedActivity" 
+                           value="${activity.id}"
+                           data-distance="${activity.distance_miles.toFixed(2)}">
+                </td>
+            `;
+            
+            activityList.appendChild(row);
+            
+            // Add click handler to the row
+            row.addEventListener('click', function(e) {
+                // If click was not directly on the radio button, find the radio and click it
+                if (e.target.type !== 'radio') {
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = true;
+                        selectActivity(activity.id, activity.distance_miles);
+                    }
+                }
+            });
         });
-    });
+        
+        // Add "Show More/Less" row if there are more than 5 activities
+        if (activities.length > 5) {
+            const actionRow = document.createElement("tr");
+            actionRow.className = "show-more-row";
+            
+            const actionText = showingAllActivities ? "Show Recent Activities" : "Show All Activities";
+            const actionIcon = showingAllActivities ? "fa-chevron-up" : "fa-chevron-down";
+            
+            actionRow.innerHTML = `
+                <td colspan="4">
+                    <button id="toggleActivitiesBtn" class="toggle-activities-btn">
+                        ${actionText} <i class="fas ${actionIcon}"></i>
+                    </button>
+                </td>
+            `;
+            
+            activityList.appendChild(actionRow);
+            
+            // Add click handler to the button
+            document.getElementById("toggleActivitiesBtn").addEventListener("click", function() {
+                showingAllActivities = !showingAllActivities;
+                if (showingAllActivities) {
+                    renderActivities(activities); // Show all activities
+                } else {
+                    renderActivities(activities.slice(0, 5)); // Show only recent 5
+                }
+            });
+        }
+    };
+    
+    // Initial render - show only the 5 most recent activities
+    renderActivities(activities.slice(0, 5));
 }
 
 /**
