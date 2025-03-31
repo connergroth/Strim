@@ -27,6 +27,3 @@ Strim is a tool that allows you to trim your run to the point you stopped runnin
 ## 📡 API Integrations
 - **Strava API** – Fetches user activities, deletes untrimmed activity and reuploads the trimmed one.
 
-## 🚀 Deployment
-- **Frontend:** [Vercel Deployment](https://strimrun.vercel.app)
-- **Backend:** [Railway Deployment](https://strim-production.up.railway.app)
