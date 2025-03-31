@@ -470,14 +470,6 @@ input[type="checkbox"]:disabled:checked {
 }
 
 /* Footer Styles */
-.footer {
-  margin-top: auto;
-  padding: 20px 0 30px;
-  text-align: center;
-  background-color: white;
-  border-top: 1px solid var(--border-color);
-}
-
 .creator-info {
     display: flex;
     align-items: center;
@@ -488,39 +480,39 @@ input[type="checkbox"]:disabled:checked {
     font-size: 14px;
 }
 
-.creator-info a {
+.creator-info a:not(.github-link) {
     color: var(--dark-gray);
     text-decoration: none;
     transition: color 0.3s ease;
 }
 
-.creator-info a:hover {
+.creator-info a:not(.github-link):hover {
     color: var(--strava-orange);
     text-decoration: underline;
 }
 
 .github-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--strava-orange);
-  text-decoration: none;
-  transition: all 0.3s ease;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--strava-orange);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #f5f5f5;
 }
 
 .github-link i {
-  font-size: 18px;
+    font-size: 18px;
 }
 
 .github-link:hover {
-  color: white;
-  background-color: var(--strava-orange);
-  transform: translateY(-2px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    color: white;
+    background-color: var(--strava-orange);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 .strava-logo {
