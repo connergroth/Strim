@@ -3,9 +3,6 @@ const BACKEND_URL = "https://strim-production.up.railway.app";
 const FRONTEND_URL = "https://strimrun.vercel.app";
 
 /**
- * Show a message to the user
- */
-/**
  * Show a message to the user with improved handling of empty messages
  */
 function showMessage(text, type = "info") {
@@ -48,9 +45,16 @@ function checkAuthStatus() {
     const authSuccess = urlParams.get("auth_success");
     const authError = urlParams.get("auth_error");
     const errorMsg = urlParams.get("message");
+    const token = urlParams.get("token"); // NEW: Get token from URL params
+    
+    // If token is in URL, store it in localStorage
+    if (token) {
+        console.log("✅ Token found in URL, storing in localStorage");
+        localStorage.setItem('strava_token', token);
+    }
     
     // Remove query parameters from URL to prevent issues on refresh
-    if (authSuccess || authError) {
+    if (authSuccess || authError || token) {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
@@ -87,9 +91,18 @@ function checkAuthStatus() {
         return;
     }
     
-    // If no auth parameters, check session status from backend
-    // But don't show any error messages yet - this is just a check
-    console.log("No auth parameters, checking session status quietly...");
+    // Check if we have a token in localStorage
+    const storedToken = localStorage.getItem('strava_token');
+    if (storedToken) {
+        console.log("✅ Found token in localStorage, using it");
+        document.getElementById("authSection").classList.add("hidden");
+        document.getElementById("activitySection").classList.remove("hidden");
+        fetchActivities();
+        return;
+    }
+    
+    // If no token in localStorage, check session status from backend
+    console.log("No stored token, checking session status quietly...");
     
     fetch(`${BACKEND_URL}/api/session-status`, {
         method: "GET",
@@ -97,7 +110,6 @@ function checkAuthStatus() {
     })
     .then(response => {
         if (!response.ok) {
-            // Don't throw an error here, just handle the failed auth silently
             console.log(`Auth check returned ${response.status} - not authenticated`);
             document.getElementById("authSection").classList.remove("hidden");
             document.getElementById("activitySection").classList.add("hidden");
@@ -112,6 +124,12 @@ function checkAuthStatus() {
         if (data.authenticated) {
             console.log("✅ User is authenticated");
             
+            // NEW: Store token in localStorage if provided
+            if (data.token) {
+                console.log("✅ Storing token from session in localStorage");
+                localStorage.setItem('strava_token', data.token);
+            }
+            
             // Show the activity section
             document.getElementById("authSection").classList.add("hidden");
             document.getElementById("activitySection").classList.remove("hidden");
@@ -119,7 +137,6 @@ function checkAuthStatus() {
         } else {
             console.log(`❌ User is NOT authenticated: ${data.reason || 'unknown reason'}`);
             
-            // Silent failure - just show auth section
             document.getElementById("authSection").classList.remove("hidden");
             document.getElementById("activitySection").classList.add("hidden");
         }
@@ -127,14 +144,13 @@ function checkAuthStatus() {
     .catch(error => {
         console.error("Error checking auth status:", error);
         
-        // Silently fail - don't show error messages on initial page load
         document.getElementById("authSection").classList.remove("hidden");
         document.getElementById("activitySection").classList.add("hidden");
     });
 }
 
 /**
- * Fetch user's activities from Strava
+ * Fetch user's activities from Strava with improved error handling and token usage
  */
 async function fetchActivities() {
     try {
@@ -143,11 +159,21 @@ async function fetchActivities() {
         // Show loading indicator
         document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
 
-        // Modified fetch call - removing problematic headers
-        const response = await fetch(`${BACKEND_URL}/activities`, {
+        // Get token from localStorage
+        const token = localStorage.getItem('strava_token');
+        
+        // Create URL with token parameter
+        const url = token 
+            ? `${BACKEND_URL}/activities?token=${encodeURIComponent(token)}` 
+            : `${BACKEND_URL}/activities`;
+            
+        console.log(`📡 Making request to: ${token ? `${BACKEND_URL}/activities?token=***MASKED***` : url}`);
+
+        // Make request with token in URL and also in credentials
+        const response = await fetch(url, {
             method: "GET",
-            credentials: "include"  // Ensures cookies are sent
-            // Removed problematic headers
+            credentials: "include",  // Ensures cookies are sent
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
         if (!response.ok) {
@@ -155,6 +181,7 @@ async function fetchActivities() {
 
             if (response.status === 401) {
                 console.log("Session expired, showing login prompt");
+                localStorage.removeItem('strava_token'); // Clear invalid token
                 showMessage("Session expired. Please log in again.", "error");
                 
                 // Wait a moment before redirecting
@@ -171,6 +198,12 @@ async function fetchActivities() {
 
         const data = await response.json();
         console.log("✅ Fetched activities:", data);
+
+        // NEW: If token is in the response, store it
+        if (data.token) {
+            console.log("✅ Updating token from activities response");
+            localStorage.setItem('strava_token', data.token);
+        }
 
         if (!data.activities || data.activities.length === 0) {
             document.getElementById("activityList").innerHTML = 
@@ -194,15 +227,15 @@ async function fetchActivities() {
 
     } catch (error) {
         console.error("❌ Network error fetching activities:", error);
-        document.getElementById("activityList").innerHTML = 
-            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         
-        // Add more helpful message for CORS errors
         if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
             document.getElementById("activityList").innerHTML = 
-                `<tr><td colspan='4'>CORS error: The server is not accessible from this domain. Please check server configuration.</td></tr>`;
+                `<tr><td colspan='4'>Connection error: Unable to reach the server. If this persists, please try again later.</td></tr>`;
             
-            showMessage("CORS error: Unable to connect to the server. This may be a temporary issue or a server configuration problem.", "error");
+            showMessage("Connection error: Unable to reach the server. This may be a temporary issue.", "error");
+        } else {
+            document.getElementById("activityList").innerHTML = 
+                `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
         }
     }
 }
@@ -216,7 +249,7 @@ function toggleDistanceInput() {
 }
 
 /**
- * Process selected activity and send to backend
+ * Process selected activity and send to backend - now with token support
  */
 async function downloadAndProcessActivity() {
     const selectedActivity = document.querySelector('input[name="selectedActivity"]:checked');
@@ -237,13 +270,22 @@ async function downloadAndProcessActivity() {
     try {
         showMessage("Downloading and processing activity...", "info");
 
+        // Get token from localStorage
+        const token = localStorage.getItem('strava_token');
+        
         // Ensure newDistance is properly encoded
         const encodedDistance = newDistance ? encodeURIComponent(newDistance) : "";
-        const url = `${BACKEND_URL}/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
+        
+        // Include token in the URL if available
+        let url = `${BACKEND_URL}/download-fit?activity_id=${activityId}&edit_distance=${editDistance}&new_distance=${encodedDistance}`;
+        if (token) {
+            url += `&token=${encodeURIComponent(token)}`;
+        }
 
         const response = await fetch(url, {
             method: "GET",
-            credentials: "include"  // Ensure cookies are sent
+            credentials: "include",  // Send cookies 
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         
         if (!response.ok) {
@@ -268,11 +310,14 @@ async function downloadAndProcessActivity() {
 }
 
 /**
- * Handle logout
+ * Handle logout - now clears local storage too
  */
 function logout() {
     console.log("🔴 Logging out...");
     showMessage("Logging out...", "info");
+    
+    // Clear the token from localStorage
+    localStorage.removeItem('strava_token');
     
     fetch(`${BACKEND_URL}/logout`, {
         method: "POST",
@@ -362,7 +407,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // Make sure the functions are exposed to the global scope
-// This is redundant with the event listeners above but provides a fallback
 window.toggleDistanceInput = toggleDistanceInput;
 window.downloadAndProcessActivity = downloadAndProcessActivity;
 window.logout = logout;
