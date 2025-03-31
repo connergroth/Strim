@@ -42,13 +42,13 @@ Strim is a tool that allows you to:
 3. Adjust the distance and trim time
 4. Strim automatically updates your Strava activity
 
-## 🖥️ Local Development Setup  
+# Local Development Setup  
 Prerequisites:  
 - Python 3.8+  
 - pip  
 - Virtual environment (recommended)  
 
-## Installation Steps  
+## ⚙️ Installation Steps  
 
 1. Clone the repository
 ```
