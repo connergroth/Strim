@@ -1,7 +1,11 @@
-/* Strim - Trim Your Strava Runs
-   Complete styles.css file with enhanced UI */
-
-   :root {
+.strava-branding {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+  }/* Strim - Trim Your Strava Runs
+     Complete styles.css file with enhanced UI */
+  
+  :root {
     --strava-orange: #FC4C02;
     --strava-orange-hover: #FF6A33;
     --dark-gray: #444;
@@ -146,6 +150,26 @@
   
   #logoutButton i {
     font-size: 14px;
+  }
+  
+  /* Strava view link styling per brand guidelines */
+  .strava-view-link {
+    color: #FC5200; /* Strava orange color as specified in guidelines */
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  
+  .strava-view-link:hover {
+    text-decoration: underline;
+  }
+  
+  .strava-view-link::after {
+    content: " - View on Strava";
+    font-size: 0.85em;
+    font-weight: bold;
+    color: #FC5200;
   }
   
   /* Table Styles */
@@ -488,12 +512,7 @@
   .strava-logo {
     max-width: 140px;
     opacity: 0.9;
-    transition: all 0.3s ease;
-  }
-  
-  .strava-logo:hover {
-    opacity: 1;
-    transform: translateY(-2px);
+    /* Remove transition effects to comply with "Never modify, alter or animate Strava logos" */
   }
   
   /* Empty State */

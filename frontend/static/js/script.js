@@ -267,11 +267,12 @@ function displayActivities(activities) {
             activityIcon = '<i class="fas fa-running"></i> ';
         }
         
-        // Create activity link
-        const activityLink = `<a href="https://www.strava.com/activities/${activity.id}" target="_blank">${activityIcon}${activity.name}</a>`;
+        // Create activity link with "View on Strava" text format
+        const activityName = `${activityIcon}${activity.name}`;
+        const viewOnStravaLink = `<a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">${activityName}</a>`;
         
         row.innerHTML = `
-            <td>${activityLink}</td>
+            <td>${viewOnStravaLink}</td>
             <td>${activity.distance_miles.toFixed(2)}</td>
             <td>${formattedDate}</td>
             <td>
@@ -446,7 +447,7 @@ async function trimActivity() {
             messageDiv.innerHTML = `
                 Activity successfully processed! 
                 <a href="https://www.strava.com/activities/${result.new_activity_id}" 
-                   target="_blank" style="margin-left: 10px; color: white; text-decoration: underline; font-weight: bold;">
+                   target="_blank" style="margin-left: 10px; color: #FC5200; font-weight: bold; text-decoration: underline;">
                    View on Strava
                 </a>
             `;
