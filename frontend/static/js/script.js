@@ -237,7 +237,7 @@ async function fetchActivities() {
 }
 
 /**
- * Display activities in the table
+ * Display activities in the table with improved formatting
  * @param {Array} activities - List of activities
  */
 function displayActivities(activities) {
@@ -255,20 +255,46 @@ function displayActivities(activities) {
             day: 'numeric'
         });
         
+        // Add activity type icon based on name
+        let activityIcon = '';
+        if (activity.name.toLowerCase().includes('night')) {
+            activityIcon = '<i class="fas fa-moon"></i> ';
+        } else if (activity.name.toLowerCase().includes('morning')) {
+            activityIcon = '<i class="fas fa-sun"></i> ';
+        } else if (activity.name.toLowerCase().includes('lunch')) {
+            activityIcon = '<i class="fas fa-utensils"></i> ';
+        } else {
+            activityIcon = '<i class="fas fa-running"></i> ';
+        }
+        
+        // Create activity link
+        const activityLink = `<a href="https://www.strava.com/activities/${activity.id}" target="_blank">${activityIcon}${activity.name}</a>`;
+        
         row.innerHTML = `
-            <td>${activity.name}</td>
+            <td>${activityLink}</td>
             <td>${activity.distance_miles.toFixed(2)}</td>
             <td>${formattedDate}</td>
             <td>
                 <input type="radio" 
                        name="selectedActivity" 
                        value="${activity.id}"
-                       data-distance="${activity.distance_miles.toFixed(2)}"
-                       onclick="selectActivity('${activity.id}', ${activity.distance_miles.toFixed(2)})">
+                       data-distance="${activity.distance_miles.toFixed(2)}">
             </td>
         `;
         
         activityList.appendChild(row);
+        
+        // Add click handler to the row
+        row.addEventListener('click', function(e) {
+            // If click was not directly on the radio button, find the radio and click it
+            if (e.target.type !== 'radio') {
+                const radio = this.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = true;
+                    selectActivity(activity.id, activity.distance_miles);
+                }
+            }
+        });
     });
 }
 
@@ -294,9 +320,9 @@ function selectActivity(id, distance) {
     rows.forEach(row => {
         const radio = row.querySelector('input[type="radio"]');
         if (radio && radio.value === id) {
-            row.style.backgroundColor = "rgba(252, 76, 2, 0.05)";
+            row.classList.add('selected');
         } else {
-            row.style.backgroundColor = "";
+            row.classList.remove('selected');
         }
     });
 }
@@ -317,10 +343,15 @@ function toggleDistanceInput() {
         void container.offsetWidth;
         
         // Animate open
-        container.style.transition = "max-height 0.3s ease-in-out";
+        container.style.transition = "max-height 0.3s ease-in-out, opacity 0.3s ease-in-out";
         container.style.maxHeight = "100px";
+        container.style.opacity = "0";
+        setTimeout(() => {
+            container.style.opacity = "1";
+        }, 50);
     } else {
         // Animate close
+        container.style.opacity = "0";
         container.style.maxHeight = "0";
         
         // Hide after animation
@@ -363,7 +394,7 @@ async function trimActivity() {
         const trimButton = document.getElementById("trimActivityButton");
         const originalButtonText = trimButton.innerHTML;
         trimButton.disabled = true;
-        trimButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing...`;
+        trimButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>`;
         
         showMessage("Processing activity...", "info");
 

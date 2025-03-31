@@ -19,6 +19,27 @@
 
     <!-- Load JavaScript as a module -->
     <script src="/static/js/script.js" type="module"></script>
+    
+    <!-- Add this script to ensure row selection works -->
+    <script>
+        // Add event delegation for row selection
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(e) {
+                if (e.target && e.target.type === 'radio') {
+                    // When a radio is clicked directly
+                    const row = e.target.closest('tr');
+                    if (row) {
+                        // Remove selected class from all rows
+                        document.querySelectorAll('#activityList tr').forEach(r => {
+                            r.classList.remove('selected');
+                        });
+                        // Add selected class to clicked row
+                        row.classList.add('selected');
+                    }
+                }
+            });
+        });
+    </script>
 </head>
 <body>
     <!-- Message container for notifications -->
