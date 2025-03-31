@@ -470,6 +470,14 @@ input[type="checkbox"]:disabled:checked {
 }
 
 /* Footer Styles */
+.footer {
+    margin-top: auto;
+    padding: 20px 0 30px;
+    text-align: center;
+    background-color: white;
+    border-top: 1px solid var(--border-color);
+}
+
 .creator-info {
     display: flex;
     align-items: center;
@@ -515,15 +523,10 @@ input[type="checkbox"]:disabled:checked {
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
-.strava-branding {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
 .strava-logo {
-    max-width: 140px;
-    opacity: 0.9;
+  max-width: 140px;
+  opacity: 0.9;
+  /* Remove transition effects to comply with "Never modify, alter or animate Strava logos" */
 }
 
 /* Empty State */
