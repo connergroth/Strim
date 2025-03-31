@@ -8,7 +8,7 @@ let selectedActivityId = null;
 let selectedActivityDistance = null;
 
 /**
- * Shows a message to the user
+ * Shows a message to the user with animation
  * @param {string} text - Message text
  * @param {string} type - Message type (success, error, info)
  */
@@ -17,25 +17,42 @@ function showMessage(text, type = "info") {
     if (!message) return;
     
     if (!text || text.trim() === "") {
-        // If no message, hide the element
-        message.textContent = "";
-        message.style.display = "none";
-        message.className = "";
+        // If no message, fade out and hide the element
+        message.classList.add("fadeOut");
+        setTimeout(() => {
+            message.textContent = "";
+            message.style.display = "none";
+            message.className = "";
+        }, 300);
         return;
     }
     
-    // Show the message
-    message.textContent = text;
-    message.style.display = "block";
-    message.className = type || "info";
+    // Setup the message
+    message.textContent = "";
+    message.classList.remove("fadeOut");
     
-    // Auto-hide success and info messages after 5 seconds
+    // Check if this is HTML content
+    if (text.includes("<a") || text.includes("<div")) {
+        message.innerHTML = text;
+    } else {
+        message.textContent = text;
+    }
+    
+    message.className = type || "info";
+    message.style.display = "block";
+    
+    // Auto-hide success and info messages after 3 seconds
     if (type === "success" || type === "info") {
         setTimeout(() => {
-            if (message.textContent === text) {
-                showMessage(""); // Clear the message
+            // Only hide if it's still the same message
+            if (message.textContent === text || message.innerHTML.includes(text)) {
+                message.classList.add("fadeOut");
+                setTimeout(() => {
+                    message.textContent = "";
+                    message.style.display = "none";
+                }, 300);
             }
-        }, 5000);
+        }, 3000);
     }
 }
 
@@ -101,7 +118,7 @@ function checkAuthStatus() {
         storeToken(token);
     }
     
-    // Remove query parameters from URL
+    // Remove query parameters from URL for cleaner appearance
     if (authSuccess || authError || token) {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -144,7 +161,13 @@ async function fetchActivities() {
         console.log("Fetching activities...");
 
         // Show loading indicator
-        document.getElementById("activityList").innerHTML = "<tr><td colspan='4'>Loading activities...</td></tr>";
+        document.getElementById("activityList").innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px;">
+                    <i class="fas fa-running fa-spin" style="margin-right: 10px; color: var(--strava-orange);"></i>
+                    Loading activities...
+                </td>
+            </tr>`;
 
         // Get token from localStorage
         const token = getStoredToken();
@@ -186,8 +209,13 @@ async function fetchActivities() {
 
         // Display activities or show message if none found
         if (!data.activities || data.activities.length === 0) {
-            document.getElementById("activityList").innerHTML = 
-                "<tr><td colspan='4'>No running activities found. Make sure you have running activities on Strava.</td></tr>";
+            document.getElementById("activityList").innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px;">
+                        <i class="fas fa-exclamation-circle" style="margin-right: 10px; color: var(--medium-gray);"></i>
+                        No running activities found. Make sure you have running activities on Strava.
+                    </td>
+                </tr>`;
             return;
         }
 
@@ -196,43 +224,121 @@ async function fetchActivities() {
     } catch (error) {
         console.error("❌ Error fetching activities:", error);
         
-        document.getElementById("activityList").innerHTML = 
-            `<tr><td colspan='4'>Failed to load activities: ${error.message}</td></tr>`;
+        document.getElementById("activityList").innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px; color: var(--error-color);">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 10px;"></i>
+                    Failed to load activities: ${error.message}
+                </td>
+            </tr>`;
             
         showMessage(`Error loading activities: ${error.message}`, "error");
     }
 }
 
 /**
- * Display activities in the table
+ * Display activities in the table with improved formatting
  * @param {Array} activities - List of activities
  */
 function displayActivities(activities) {
     const activityList = document.getElementById("activityList");
     activityList.innerHTML = "";
-
-    activities.forEach(activity => {
-        const row = document.createElement("tr");
+    
+    // Variable to track if we're showing all activities or just recent ones
+    let showingAllActivities = false;
+    
+    // Function to render activities (either all or just recent ones)
+    const renderActivities = (activitiesToShow) => {
+        activityList.innerHTML = ""; // Clear the list first
         
-        // Format date
-        const activityDate = new Date(activity.date);
-        const formattedDate = activityDate.toLocaleDateString();
+        activitiesToShow.forEach(activity => {
+            const row = document.createElement("tr");
+            
+            // Format date
+            const activityDate = new Date(activity.date);
+            const formattedDate = activityDate.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            
+            // Add activity type icon based on name
+            let activityIcon = '';
+            if (activity.name.toLowerCase().includes('night')) {
+                activityIcon = '<i class="fas fa-moon"></i> ';
+            } else if (activity.name.toLowerCase().includes('morning')) {
+                activityIcon = '<i class="fas fa-sun"></i> ';
+            } else if (activity.name.toLowerCase().includes('lunch')) {
+                activityIcon = '<i class="fas fa-utensils"></i> ';
+            } else {
+                activityIcon = '<i class="fas fa-running"></i> ';
+            }
+            
+            // Create activity display with "View on Strava" link separated below
+            const activityDisplay = `
+                <div class="activity-name">${activityIcon}${activity.name}</div>
+                <a href="https://www.strava.com/activities/${activity.id}" target="_blank" class="strava-view-link">View on Strava</a>
+            `;
+            
+            row.innerHTML = `
+                <td>${activityDisplay}</td>
+                <td>${activity.distance_miles.toFixed(2)}</td>
+                <td>${formattedDate}</td>
+                <td>
+                    <input type="radio" 
+                           name="selectedActivity" 
+                           value="${activity.id}"
+                           data-distance="${activity.distance_miles.toFixed(2)}">
+                </td>
+            `;
+            
+            activityList.appendChild(row);
+            
+            // Add click handler to the row
+            row.addEventListener('click', function(e) {
+                // If click was not directly on the radio button, find the radio and click it
+                if (e.target.type !== 'radio') {
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = true;
+                        selectActivity(activity.id, activity.distance_miles);
+                    }
+                }
+            });
+        });
         
-        row.innerHTML = `
-            <td>${activity.name}</td>
-            <td>${activity.distance_miles.toFixed(2)}</td>
-            <td>${formattedDate}</td>
-            <td>
-                <input type="radio" 
-                       name="selectedActivity" 
-                       value="${activity.id}"
-                       data-distance="${activity.distance_miles.toFixed(2)}"
-                       onclick="selectActivity('${activity.id}', ${activity.distance_miles.toFixed(2)})">
-            </td>
-        `;
-        
-        activityList.appendChild(row);
-    });
+        // Add "Show More/Less" row if there are more than 5 activities
+        if (activities.length > 5) {
+            const actionRow = document.createElement("tr");
+            actionRow.className = "show-more-row";
+            
+            const actionText = showingAllActivities ? "Show Recent Activities" : "Show All Activities";
+            const actionIcon = showingAllActivities ? "fa-chevron-up" : "fa-chevron-down";
+            
+            actionRow.innerHTML = `
+                <td colspan="4">
+                    <button id="toggleActivitiesBtn" class="toggle-activities-btn">
+                        <span>${actionText}</span> <i class="fas ${actionIcon}"></i>
+                    </button>
+                </td>
+            `;
+            
+            activityList.appendChild(actionRow);
+            
+            // Add click handler to the button
+            document.getElementById("toggleActivitiesBtn").addEventListener("click", function() {
+                showingAllActivities = !showingAllActivities;
+                if (showingAllActivities) {
+                    renderActivities(activities); // Show all activities
+                } else {
+                    renderActivities(activities.slice(0, 5)); // Show only recent 5
+                }
+            });
+        }
+    };
+    
+    // Initial render - show only the 5 most recent activities
+    renderActivities(activities.slice(0, 5));
 }
 
 /**
@@ -251,14 +357,51 @@ function selectActivity(id, distance) {
     }
     
     console.log(`Selected activity: ${id}, distance: ${distance} miles`);
+    
+    // Highlight the selected row
+    const rows = document.querySelectorAll("#activityList tr");
+    rows.forEach(row => {
+        const radio = row.querySelector('input[type="radio"]');
+        if (radio && radio.value === id) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    });
 }
 
 /**
- * Toggle distance input visibility
+ * Toggle distance input visibility with animation
  */
 function toggleDistanceInput() {
     const editDistanceChecked = document.getElementById("editDistanceCheckbox").checked;
-    document.getElementById("distanceInputContainer").style.display = editDistanceChecked ? "block" : "none";
+    const container = document.getElementById("distanceInputContainer");
+    
+    if (editDistanceChecked) {
+        container.style.display = "block";
+        container.style.maxHeight = "0";
+        container.style.overflow = "hidden";
+        
+        // Trigger reflow
+        void container.offsetWidth;
+        
+        // Animate open
+        container.style.transition = "max-height 0.3s ease-in-out, opacity 0.3s ease-in-out";
+        container.style.maxHeight = "100px";
+        container.style.opacity = "0";
+        setTimeout(() => {
+            container.style.opacity = "1";
+        }, 50);
+    } else {
+        // Animate close
+        container.style.opacity = "0";
+        container.style.maxHeight = "0";
+        
+        // Hide after animation
+        setTimeout(() => {
+            container.style.display = "none";
+        }, 300);
+    }
 }
 
 /**
@@ -292,9 +435,9 @@ async function trimActivity() {
     try {
         // Disable button during processing
         const trimButton = document.getElementById("trimActivityButton");
-        const originalButtonText = trimButton.textContent;
+        const originalButtonText = trimButton.innerHTML;
         trimButton.disabled = true;
-        trimButton.textContent = "Processing...";
+        trimButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>`;
         
         showMessage("Processing activity...", "info");
 
@@ -326,7 +469,7 @@ async function trimActivity() {
         
         // Re-enable button
         trimButton.disabled = false;
-        trimButton.textContent = originalButtonText;
+        trimButton.innerHTML = originalButtonText;
         
         if (!response.ok) {
             const errorData = await response.json();
@@ -346,7 +489,7 @@ async function trimActivity() {
             messageDiv.innerHTML = `
                 Activity successfully processed! 
                 <a href="https://www.strava.com/activities/${result.new_activity_id}" 
-                   target="_blank" style="margin-left: 10px; color: white; text-decoration: underline;">
+                   target="_blank" style="margin-left: 10px; color: #FC5200; font-weight: bold; text-decoration: underline;">
                    View on Strava
                 </a>
             `;
@@ -357,8 +500,8 @@ async function trimActivity() {
             messageEl.className = 'success';
             messageEl.style.display = 'block';
             
-            // Refresh activities after a delay
-            setTimeout(fetchActivities, 2000);
+            // Refresh activities after a short delay
+            setTimeout(fetchActivities, 1500);
         } else {
             throw new Error(result.error || "Unknown error occurred");
         }
