@@ -41,7 +41,7 @@ function showMessage(text, type = "info") {
     message.className = type || "info";
     message.style.display = "block";
     
-    // Auto-hide success and info messages after 5 seconds
+    // Auto-hide success and info messages after 3 seconds
     if (type === "success" || type === "info") {
         setTimeout(() => {
             // Only hide if it's still the same message
@@ -52,7 +52,7 @@ function showMessage(text, type = "info") {
                     message.style.display = "none";
                 }, 300);
             }
-        }, 5000);
+        }, 3000);
     }
 }
 
@@ -426,8 +426,8 @@ async function trimActivity() {
             messageEl.className = 'success';
             messageEl.style.display = 'block';
             
-            // Refresh activities after a delay
-            setTimeout(fetchActivities, 2000);
+            // Refresh activities after a short delay
+            setTimeout(fetchActivities, 1500);
         } else {
             throw new Error(result.error || "Unknown error occurred");
         }
