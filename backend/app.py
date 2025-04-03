@@ -356,8 +356,9 @@ def download_fit():
 
         response = requests.get(fit_url, headers=headers, stream=True)
         if response.status_code != 200:
-            app.logger.error(f"Failed to download FIT file: {response.status_code} {response.text}")
-            return jsonify({"error": "Failed to download FIT file from Strava"}), 500
+            app.logger.error(f"Failed to download FIT file: {response.status_code}")
+            app.logger.error(f"Response text: {response.text}")
+            return jsonify({"error": f"Failed to download FIT file from Strava: {response.status_code}"}), 500
 
         # Save the FIT file
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
