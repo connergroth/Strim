@@ -324,7 +324,16 @@ def get_activities():
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
+    """Download activity data, modify old activity, and create new one with original time."""
     try:
+        # Import necessary modules
+        import json
+        import time
+        import random
+        import datetime
+        import traceback
+        import requests
+        
         # Get token using helper function
         token = get_token_from_request()
         
@@ -342,94 +351,165 @@ def download_fit():
 
         if edit_distance and (not new_distance or float(new_distance) <= 0):
             return jsonify({"error": "Invalid new distance provided"}), 400
+            
+        # Convert new_distance from miles to meters if editing distance
+        corrected_distance = None
+        if edit_distance and new_distance:
+            # Convert miles to meters (1 mile = 1609.34 meters)
+            corrected_distance = float(new_distance) * 1609.34
+            app.logger.info(f"Converting {new_distance} miles to {corrected_distance} meters")
 
         app.logger.info(f"Processing activity {activity_id} (edit_distance={edit_distance}, new_distance={new_distance})")
 
-        # Step 1: Get activity details before deletion
+        # Step 1: Get activity details
         activity_metadata = api_utils.get_activity_details(activity_id, token)
         if not activity_metadata:
             return jsonify({"error": "Failed to retrieve activity details"}), 500
-
-        # Step 2: Download original FIT file from Strava
-        fit_url = f"https://www.strava.com/api/v3/activities/{activity_id}/export_original"
-        headers = {"Authorization": f"Bearer {token}"}
-
-        response = requests.get(fit_url, headers=headers, stream=True)
-        if response.status_code != 200:
-            app.logger.error(f"Failed to download FIT file: {response.status_code} {response.text}")
-            return jsonify({"error": "Failed to download FIT file from Strava"}), 500
-
-        # Save the FIT file
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        fit_path = os.path.join(UPLOAD_FOLDER, f"{activity_id}.fit")
-        with open(fit_path, "wb") as fit_file:
-            for chunk in response.iter_content(chunk_size=1024):
-                fit_file.write(chunk)
+            
+        # Save the original activity attributes we want to preserve
+        original_name = activity_metadata.get("name", "Activity")
+        original_type = activity_metadata.get("type", "Run")
+        original_date = activity_metadata.get("start_date_local")
+        original_gear_id = activity_metadata.get("gear_id")
         
-        app.logger.info(f"Downloaded FIT file to {fit_path}")
+        app.logger.info(f"Retrieved activity metadata: {original_name}, " 
+                      f"type: {original_type}, "
+                      f"date: {original_date}, "
+                      f"gear: {original_gear_id}")
 
-        # Step 3: Process FIT file (trim stops and optionally edit distance)
+        # Step 2: Get activity streams
+        streams_url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
+        headers = {"Authorization": f"Bearer {token}"}
+        params = {
+            # Request specific streams
+            "keys": "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,moving",
+            # The key_by_type parameter affects the response format
+            "key_by_type": "true" 
+        }
+
+        app.logger.info(f"Requesting streams from: {streams_url} with params: {params}")
+        response = requests.get(streams_url, headers=headers, params=params)
+
+        if response.status_code != 200:
+            app.logger.error(f"Failed to get activity streams: {response.status_code} {response.text}")
+            return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
+
+        # Get stream data
+        stream_data = response.text
+        
+        # Step 3: Process streams to determine trim point and new metrics
         try:
-            df = trimmer.load_fit(fit_path)
-            end_timestamp = trimmer.detect_stop(df)
+            # Process the streams data
+            trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
+                activity_id, 
+                stream_data, 
+                activity_metadata,
+                corrected_distance
+            )
             
-            # Convert new_distance from miles to meters if editing distance
-            corrected_distance = None
-            if edit_distance and new_distance:
-                # Convert miles to meters (1 mile = 1609.34 meters)
-                corrected_distance = float(new_distance) * 1609.34
-                app.logger.info(f"Converting {new_distance} miles to {corrected_distance} meters")
-            
-            trimmed_df = trimmer.trim(df, end_timestamp, corrected_distance)
-            
-            # Convert to TCX format
-            trimmed_tcx = os.path.join(UPLOAD_FOLDER, f"trimmed_{activity_id}.tcx")
-            trimmer.convert_to_tcx(trimmed_df, trimmed_tcx)
-            app.logger.info(f"Created TCX file at {trimmed_tcx}")
-            
+            if not trimmed_metrics:
+                return jsonify({"error": "Failed to process activity streams"}), 500
+                
+            app.logger.info(f"Calculated trimmed metrics: {trimmed_metrics}")
         except Exception as e:
-            app.logger.error(f"Error processing FIT file: {str(e)}")
-            return jsonify({"error": f"Error processing FIT file: {str(e)}"}), 500
+            app.logger.error(f"Error processing streams: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
 
-        # Step 4: Delete old activity from Strava
-        app.logger.info(f"Deleting original activity {activity_id}")
-        delete_success = api_utils.delete_activity(activity_id, token)
-        if not delete_success:
-            app.logger.error(f"Failed to delete original activity {activity_id}")
-            return jsonify({"error": "Failed to delete original activity from Strava"}), 500
-
-        # Step 5: Upload new trimmed activity
-        app.logger.info(f"Uploading new activity with name: {activity_metadata['name']}")
-        upload_id = api_utils.upload_tcx(token, trimmed_tcx, activity_metadata["name"])
-        if not upload_id:
-            app.logger.error("Failed to upload new activity")
-            return jsonify({"error": "Failed to upload new activity to Strava"}), 500
-
-        # Step 6: Wait for Strava to process the uploaded activity
-        app.logger.info(f"Waiting for Strava to process upload {upload_id}")
-        new_activity_id = api_utils.check_upload_status(token, upload_id)
+        # Step 4: Modify the original activity to avoid duplicate detection
+        app.logger.info(f"Modifying original activity {activity_id} to avoid duplicate detection")
+        
+        # Parse the original time from the activity metadata
+        original_time = None
+        try:
+            if original_date:
+                # Handle different date formats
+                for fmt in ["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ"]:
+                    try:
+                        original_time = datetime.datetime.strptime(original_date, fmt)
+                        app.logger.info(f"Parsed original time: {original_time}")
+                        break
+                    except ValueError:
+                        continue
+        except Exception as e:
+            app.logger.warning(f"Could not parse original time: {str(e)}")
+        
+        # Add a random suffix to the original activity's name
+        random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
+        new_name = f"{original_name} {random_suffix}"
+        
+        # Modify the original activity
+        modify_payload = {
+            "name": new_name,
+            "private": True
+        }
+        
+        modify_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        modify_response = requests.put(modify_url, headers=headers, data=json.dumps(modify_payload))
+        
+        if modify_response.status_code != 200:
+            app.logger.error(f"Failed to modify original activity: {modify_response.status_code}")
+            return jsonify({"error": "Failed to modify original activity"}), 500
+            
+        app.logger.info(f"Successfully modified original activity name to: {new_name}")
+        
+        # Wait a moment for Strava to process the changes
+        time.sleep(1)
+        
+        # Step 5: Create new activity with the trimmed metrics but preserving original time
+        
+        # Use the original start time if we have it
+        if original_time:
+            # Format it back to string in the format Strava expects
+            trimmed_metrics["start_date_local"] = original_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            app.logger.info(f"Using original start time: {trimmed_metrics['start_date_local']}")
+        
+        # Set the name to the original name (without the suffix we added to the original)
+        trimmed_metrics["name"] = original_name
+        
+        # Create the new activity
+        app.logger.info(f"Creating new activity with name: {trimmed_metrics['name']}")
+        new_activity_id = api_utils.create_activity(token, trimmed_metrics)
+        
         if not new_activity_id:
-            app.logger.error("Upload processing failed or timed out")
-            return jsonify({"error": "Strava upload processing failed or timed out"}), 500
+            app.logger.error("Failed to create new activity")
+            return jsonify({"error": "Failed to create new activity on Strava"}), 500
 
         app.logger.info(f"Successfully created new activity {new_activity_id}")
         
-        # Step 7: Clean up temporary files
-        try:
-            os.remove(fit_path)
-            os.remove(trimmed_tcx)
-            app.logger.info("Temporary files cleaned up")
-        except Exception as e:
-            app.logger.warning(f"Could not clean up temporary files: {str(e)}")
+        # Step 6: Clean up the new activity by removing any suffix/prefix from name
+        # and cleaning up the description
+        app.logger.info(f"Cleaning up new activity {new_activity_id}")
+        
+        # Wait a moment to ensure the activity is fully created
+        time.sleep(1)
+        
+        # Get the original description without the "Trimmed with Strim" text
+        original_description = activity_metadata.get('description', '')
+        
+        # Clean up the new activity
+        cleanup_success = api_utils.cleanup_activity(new_activity_id, token, original_name, original_description)
+        
+        if cleanup_success:
+            app.logger.info(f"Successfully cleaned up activity {new_activity_id}")
+        else:
+            app.logger.warning(f"Failed to clean up activity {new_activity_id}, but continuing")
+            # Don't fail the whole process if cleanup fails
 
+        # Important: Return only a single success response with all necessary information
+        # Include a flag to prevent additional requests
         return jsonify({
             "success": True, 
             "new_activity_id": new_activity_id,
-            "token": token  # Include token in response
+            "original_activity_id": activity_id,
+            "message": "Successfully created new activity with corrected data",
+            "token": token,
+            "complete": True  # Add a flag to indicate processing is complete
         })
 
     except Exception as e:
-        app.logger.error(f"Error in /download-fit: {str(e)}\n{traceback.format_exc()}")
+        app.logger.error(f"Error in /download-fit: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 @app.route("/update-distance", methods=["POST"])
@@ -473,6 +553,32 @@ def update_distance():
         "new_activity_id": new_activity_id,
         "token": token
     })
+
+@app.route("/activities/<activity_id>/details", methods=["GET"])
+def get_activity_details(activity_id):
+    try:
+        # Get token using helper function
+        token = get_token_from_request()
+        
+        # If no token, return unauthorized
+        if not token:
+            app.logger.error("❌ No valid token found for activity details")
+            return jsonify({"error": "Unauthorized. No valid token."}), 401
+
+        # Get activity details from Strava
+        activity_data = api_utils.get_activity_details(activity_id, token)
+        if not activity_data:
+            return jsonify({"error": "Failed to retrieve activity details from Strava"}), 500
+
+        # Return activity data with token
+        return jsonify({
+            "activity": activity_data,
+            "token": token  # Include token in response
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in /activities/{activity_id}/details: {str(e)}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 @app.route("/logout", methods=["POST"])
 def logout():

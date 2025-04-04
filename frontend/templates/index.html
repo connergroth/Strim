@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strim - Trim Your Strava Runs</title>
+    <title>Strim - Smarter Strava stats</title>
 
     <!-- External Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -110,6 +110,11 @@
         <button id="trimActivityButton" onclick="trimActivity()">
             <i class="fas fa-scissors"></i> Trim Activity
         </button>
+    </div>
+    <div id="photoWarning" class="warning-message hidden">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>This activity contains photos that cannot be automatically transferred to the trimmed activity. 
+        You'll need to manually re-add any photos after trimming.</span>
     </div>
 
     <div class="steps">
