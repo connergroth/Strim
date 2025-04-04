@@ -324,7 +324,7 @@ def get_activities():
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
-    """Download activity data, aggressively modify old activity, and create new one."""
+    """Download activity data, modify old activity, and create new one with original time."""
     try:
         # Get token using helper function
         token = get_token_from_request()
@@ -408,53 +408,61 @@ def download_fit():
             app.logger.error(traceback.format_exc())
             return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
 
-        # Step 4: Aggressively modify the original activity to avoid duplicate detection
-        app.logger.info(f"Aggressively modifying original activity {activity_id} to avoid duplicate detection")
-        modify_success = api_utils.modify_activity_aggressively(activity_id, token)
+        # Step 4: Modify the original activity to avoid duplicate detection
+        app.logger.info(f"Modifying original activity {activity_id} to avoid duplicate detection")
         
-        if not modify_success:
-            app.logger.warning(f"Failed to modify original activity {activity_id}")
-            return jsonify({"error": "Failed to modify original activity, cannot proceed"}), 500
+        # Save original time before modification
+        import datetime
+        
+        # Parse the original time from the activity metadata
+        original_time = None
+        try:
+            if original_date:
+                # Handle different date formats
+                for fmt in ["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ"]:
+                    try:
+                        original_time = datetime.datetime.strptime(original_date, fmt)
+                        app.logger.info(f"Parsed original time: {original_time}")
+                        break
+                    except ValueError:
+                        continue
+        except Exception as e:
+            app.logger.warning(f"Could not parse original time: {str(e)}")
+        
+        # Add a random suffix to the original activity's name
+        import random
+        random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
+        new_name = f"{original_name} {random_suffix}"
+        
+        # Modify the original activity
+        modify_payload = {
+            "name": new_name,
+            "private": True
+        }
+        
+        modify_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        modify_response = requests.put(modify_url, headers=headers, data=json.dumps(modify_payload))
+        
+        if modify_response.status_code != 200:
+            app.logger.error(f"Failed to modify original activity: {modify_response.status_code}")
+            return jsonify({"error": "Failed to modify original activity"}), 500
+            
+        app.logger.info(f"Successfully modified original activity name to: {new_name}")
         
         # Wait a moment for Strava to process the changes
         import time
         time.sleep(1)
         
-        # Step 5: Create new activity with the trimmed metrics and significant changes
-        import random
-        from datetime import datetime, timedelta
+        # Step 5: Create new activity with the trimmed metrics but preserving original time
         
-        # Make significant modifications to the start time
-        if "start_date_local" in trimmed_metrics:
-            try:
-                date_format = "%Y-%m-%dT%H:%M:%SZ"
-                start_date = datetime.strptime(trimmed_metrics["start_date_local"], date_format)
-                
-                # Add a significant offset (5-15 minutes) to the start time
-                offset_minutes = random.randint(5, 15)
-                new_start_date = start_date + timedelta(minutes=offset_minutes)
-                trimmed_metrics["start_date_local"] = new_start_date.strftime(date_format)
-                
-                app.logger.info(f"Significantly adjusted start time to: {trimmed_metrics['start_date_local']}")
-            except Exception as e:
-                app.logger.warning(f"Could not adjust start time: {str(e)}")
+        # Use the original start time if we have it
+        if original_time:
+            # Format it back to string in the format Strava expects
+            trimmed_metrics["start_date_local"] = original_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            app.logger.info(f"Using original start time: {trimmed_metrics['start_date_local']}")
         
-        # Set the original name without modifications
+        # Set the name to the original name (without the suffix we added to the original)
         trimmed_metrics["name"] = original_name
-        
-        # Slightly adjust the distance to make it different
-        if "distance" in trimmed_metrics and trimmed_metrics["distance"] > 0:
-            # Add a small random amount (1-5 meters)
-            small_adjustment = random.uniform(1.0, 5.0)
-            trimmed_metrics["distance"] += small_adjustment
-            app.logger.info(f"Adjusted distance from {trimmed_metrics['distance'] - small_adjustment} to {trimmed_metrics['distance']} meters")
-        
-        # Slightly adjust elapsed time if present
-        if "elapsed_time" in trimmed_metrics and trimmed_metrics["elapsed_time"] > 0:
-            # Add 1-3 seconds
-            time_adjustment = random.randint(1, 3)
-            trimmed_metrics["elapsed_time"] += time_adjustment
-            app.logger.info(f"Adjusted elapsed time to: {trimmed_metrics['elapsed_time']} seconds (+{time_adjustment})")
         
         # Create the new activity
         app.logger.info(f"Creating new activity with name: {trimmed_metrics['name']}")
@@ -465,29 +473,16 @@ def download_fit():
             return jsonify({"error": "Failed to create new activity on Strava"}), 500
 
         app.logger.info(f"Successfully created new activity {new_activity_id}")
-        
-        # Step 6: Restore the original activity's type if we managed to create a new one
-        # This keeps the app clean for the user
-        try:
-            restore_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
-            restore_payload = {
-                "private": True,  # Keep it private
-                "type": original_type,  # Restore original type
-                "sport_type": original_type
-            }
-            
-            restore_response = requests.put(restore_url, headers=headers, data=json.dumps(restore_payload))
-            if restore_response.status_code == 200:
-                app.logger.info(f"Restored original activity type to {original_type}")
-        except Exception as e:
-            app.logger.warning(f"Could not restore original activity type: {str(e)}")
 
+        # Important: Return only a single success response with all necessary information
+        # Include a flag to prevent additional requests
         return jsonify({
             "success": True, 
             "new_activity_id": new_activity_id,
             "original_activity_id": activity_id,
             "message": "Successfully created new activity with corrected data",
-            "token": token
+            "token": token,
+            "complete": True  # Add a flag to indicate processing is complete
         })
 
     except Exception as e:

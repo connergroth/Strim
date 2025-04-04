@@ -207,9 +207,9 @@ def streams_to_dataframe(stream_data):
                 logger.error(f"Distance stream structure: {list(stream_data['distance'].keys())}")
         return None
 
-def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration=30):
+def detect_stop_from_streams(df, flat_tolerance=0.5, flat_window=10, min_duration=20):
     """
-    Detect when the user stopped moving by analyzing distance stream.
+    Detect when the user stopped moving by analyzing distance and velocity streams.
     
     Args:
         df (pandas.DataFrame): DataFrame with stream data
@@ -221,9 +221,70 @@ def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration
         int: Index where stop was detected, or None if no stop detected
     """
     try:
+        logger.info("Analyzing streams for stop detection")
+        
+        # Check if we have the necessary data
         if 'distance' not in df.columns:
             logger.warning("No distance data available for stop detection")
             return None
+            
+        # Log the total activity data
+        total_points = len(df)
+        total_distance = df['distance'].max() if 'distance' in df.columns else 0
+        total_time = df['time'].max() if 'time' in df.columns else 0
+        
+        logger.info(f"Activity data: {total_points} points, {total_distance:.2f}m, {total_time:.0f} seconds")
+        
+        # First, try to use velocity data if available (more reliable)
+        if 'velocity_smooth' in df.columns:
+            logger.info("Using velocity data for stop detection")
+            
+            # Mark very low velocity points as potential stops
+            velocity_threshold = 0.3  # very slow pace, almost stopped
+            df['is_stopped'] = df['velocity_smooth'] < velocity_threshold
+            
+            # Count consecutive stopped points
+            consecutive_stopped = 0
+            stop_index = None
+            stop_indices = []
+            
+            for idx, row in df.iterrows():
+                if row['is_stopped']:
+                    consecutive_stopped += 1
+                    if consecutive_stopped >= flat_window:
+                        # Found a potential stop point
+                        stop_index = idx - flat_window + 1
+                        stop_indices.append((stop_index, consecutive_stopped))
+                else:
+                    consecutive_stopped = 0
+            
+            # If we found potential stops, analyze them
+            if stop_indices:
+                # Sort by position (earlier in activity first)
+                stop_indices.sort(key=lambda x: x[0])
+                
+                # Calculate duration for each stop if time data is available
+                stops_with_duration = []
+                for idx, count in stop_indices:
+                    if 'time' in df.columns:
+                        start_time = df.loc[idx, 'time']
+                        end_idx = min(idx + count, total_points - 1)
+                        end_time = df.loc[end_idx, 'time']
+                        duration = end_time - start_time
+                        
+                        # If it's a substantial stop, use it
+                        if duration >= min_duration:
+                            stops_with_duration.append((idx, duration))
+                            logger.info(f"Found velocity-based stop at index {idx}, duration {duration:.1f}s, distance {df.loc[idx, 'distance']:.2f}m")
+                
+                # If we have substantial stops, use the first one
+                if stops_with_duration:
+                    stop_index = stops_with_duration[0][0]
+                    logger.info(f"Selected stop at index {stop_index}, distance {df.loc[stop_index, 'distance']:.2f}m")
+                    return stop_index
+        
+        # Fallback: Use distance changes to detect stops
+        logger.info("Using distance changes for stop detection")
         
         # Calculate distance changes
         df_temp = df.copy()
@@ -241,89 +302,46 @@ def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration
                 consecutive_flat += 1
                 if consecutive_flat >= flat_window:
                     stop_index = idx - flat_window + 1
-                    break
+                    
+                    # Check if this is a substantial stop (using time data if available)
+                    if 'time' in df_temp.columns:
+                        start_time = df_temp.loc[stop_index, 'time']
+                        end_time = df_temp.loc[min(idx, total_points-1), 'time']
+                        duration = end_time - start_time
+                        
+                        if duration >= min_duration:
+                            logger.info(f"Detected substantial stop at index {stop_index}, distance {df.loc[stop_index, 'distance']:.2f}m, duration {duration:.1f}s")
+                            return stop_index
             else:
                 consecutive_flat = 0
-        
-        if stop_index is not None:
-            logger.info(f"Detected stop at index {stop_index}, distance {df.loc[stop_index, 'distance']:.2f}m")
-            return stop_index
-        
-        # Alternative method: find a significant stop in the activity
-        # Look for places where the distance doesn't change for a while
-        flat_regions = []
-        current_flat = None
-        
-        for idx, row in df_temp.iterrows():
-            if row['is_flat']:
-                if current_flat is None:
-                    current_flat = {'start': idx, 'count': 1}
-                else:
-                    current_flat['count'] += 1
-            else:
-                if current_flat is not None and current_flat['count'] >= 3:  # At least 3 points of no movement
-                    # Calculate duration of the flat region if time data is available
-                    if 'time' in df_temp.columns:
-                        start_time = df_temp.loc[current_flat['start'], 'time']
-                        end_time = df_temp.loc[idx-1, 'time']
-                        duration = end_time - start_time
-                        current_flat['duration'] = duration
-                    elif 'time_seconds' in df_temp.columns:
-                        start_time = df_temp.loc[current_flat['start'], 'time_seconds']
-                        end_time = df_temp.loc[idx-1, 'time_seconds']
-                        duration = end_time - start_time
-                        current_flat['duration'] = duration
-                    else:
-                        current_flat['duration'] = current_flat['count'] * 1  # Assume 1 second per data point if no time data
-                        
-                    flat_regions.append(current_flat)
-                current_flat = None
-        
-        # Add the last region if it's flat
-        if current_flat is not None and current_flat['count'] >= 3:
-            # Calculate duration for the last flat region
-            if 'time' in df_temp.columns:
-                start_time = df_temp.loc[current_flat['start'], 'time']
-                end_time = df_temp.loc[df_temp.index[-1], 'time']
-                duration = end_time - start_time
-                current_flat['duration'] = duration
-            elif 'time_seconds' in df_temp.columns:
-                start_time = df_temp.loc[current_flat['start'], 'time_seconds']
-                end_time = df_temp.loc[df_temp.index[-1], 'time_seconds']
-                duration = end_time - start_time
-                current_flat['duration'] = duration
-            else:
-                current_flat['duration'] = current_flat['count'] * 1
                 
-            flat_regions.append(current_flat)
-        
-        # Filter regions by minimum duration
-        significant_stops = [region for region in flat_regions if region.get('duration', 0) >= min_duration]
-        
-        # If we have significant stops, sort by position in the activity (prioritize earlier stops)
-        if significant_stops:
-            # Sort by position (start index) to find the first significant stop
-            significant_stops.sort(key=lambda x: x['start'])
-            stop_index = significant_stops[0]['start']
-            logger.info(f"Detected significant stop at index {stop_index}, duration: {significant_stops[0].get('duration', 'unknown')} seconds")
-            return stop_index
+        # If we have a potential stop but didn't return yet, check its significance
+        if stop_index is not None:
+            logger.info(f"Detected potential stop at index {stop_index}, distance {df.loc[stop_index, 'distance']:.2f}m")
             
-        # If no significant stops found, sort all flat regions by length (longest first)
-        if flat_regions:
-            flat_regions.sort(key=lambda x: x['count'], reverse=True)
-            stop_index = flat_regions[0]['start']
-            logger.info(f"Detected flat region at index {stop_index}, with {flat_regions[0]['count']} points")
+            # Check what percentage of the activity this represents
+            stop_distance = df.loc[stop_index, 'distance']
+            stop_percentage = (stop_distance / total_distance) * 100 if total_distance > 0 else 0
+            
+            # If the stop occurs very early (less than 20% into the activity), it might be a false positive
+            if stop_percentage < 20:
+                logger.warning(f"Stop detected too early ({stop_percentage:.1f}% of activity), ignoring")
+                return None
+                
             return stop_index
         
         logger.info("No stop detected, using complete activity")
         return None
+        
     except Exception as e:
         logger.error(f"Error detecting stop: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
     """
-    Build metrics for a trimmed activity.
+    Build metrics for a trimmed activity with improved time handling.
     
     Args:
         df (pandas.DataFrame): Trimmed DataFrame with stream data
@@ -337,16 +355,19 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         metrics = {}
         
         # Copy basic metadata
-        metrics['name'] = activity_metadata.get('name', 'Trimmed Activity')
+        metrics['name'] = activity_metadata.get('name', 'Activity')
         metrics['type'] = activity_metadata.get('type', 'Run')
+        
+        # Preserve the original start time
         metrics['start_date_local'] = activity_metadata.get('start_date_local')
+        logger.info(f"Using original start time: {metrics['start_date_local']}")
         
         # Preserve original description if it exists, otherwise create new one
         original_description = activity_metadata.get('description', '')
         if original_description:
-            metrics['description'] = f"{original_description}\n\n(Trimmed with Strim - Stops removed)"
+            metrics['description'] = f"{original_description}\n\n(Trimmed with Strim)"
         else:
-            metrics['description'] = 'Trimmed with Strim - Stops removed'
+            metrics['description'] = 'Trimmed with Strim'
             
         # Copy additional metadata for preservation
         if 'gear_id' in activity_metadata:
@@ -373,20 +394,48 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         
         # Calculate elapsed time
         if 'time' in df.columns:
-            metrics['elapsed_time'] = int(df['time'].max())
-            logger.info(f"Elapsed time: {metrics['elapsed_time']} seconds")
+            # Use the actual time from the data stream
+            trimmed_elapsed = int(df['time'].max())
+            logger.info(f"Elapsed time from stream: {trimmed_elapsed} seconds")
+            
+            # Check if it's reasonable
+            original_elapsed = activity_metadata.get('elapsed_time', 0)
+            if trimmed_elapsed > 0 and trimmed_elapsed <= original_elapsed:
+                metrics['elapsed_time'] = trimmed_elapsed
+            else:
+                # If time seems wrong, estimate based on distance
+                logger.warning(f"Stream elapsed time {trimmed_elapsed}s may be incorrect (original: {original_elapsed}s)")
+                
+                # If we have corrected distance, estimate time proportionally
+                if corrected_distance and 'distance' in df.columns:
+                    original_distance = activity_metadata.get('distance', 0)
+                    if original_distance > 0 and original_elapsed > 0:
+                        distance_ratio = corrected_distance / original_distance
+                        estimated_time = int(original_elapsed * distance_ratio)
+                        metrics['elapsed_time'] = estimated_time
+                        logger.info(f"Estimated elapsed time based on distance ratio: {estimated_time}s")
+                    else:
+                        metrics['elapsed_time'] = original_elapsed
+                        logger.info(f"Using original elapsed time: {original_elapsed}s")
+                else:
+                    metrics['elapsed_time'] = original_elapsed
+                    logger.info(f"Using original elapsed time: {original_elapsed}s")
         elif 'time_seconds' in df.columns:
             metrics['elapsed_time'] = int(df['time_seconds'].max())
             logger.info(f"Elapsed time: {metrics['elapsed_time']} seconds")
         else:
             # If no time stream is available, estimate from original
             original_elapsed = activity_metadata.get('elapsed_time', 0)
-            original_distance = activity_metadata.get('distance', 0)
             
-            if original_distance > 0:
-                distance_ratio = metrics['distance'] / original_distance
-                metrics['elapsed_time'] = int(original_elapsed * distance_ratio)
-                logger.info(f"Estimated elapsed time: {metrics['elapsed_time']} seconds")
+            if corrected_distance is not None:
+                original_distance = activity_metadata.get('distance', 0)
+                if original_distance > 0:
+                    distance_ratio = corrected_distance / original_distance
+                    metrics['elapsed_time'] = int(original_elapsed * distance_ratio)
+                    logger.info(f"Estimated elapsed time: {metrics['elapsed_time']} seconds")
+                else:
+                    metrics['elapsed_time'] = original_elapsed
+                    logger.warning(f"Using original elapsed time: {original_elapsed} seconds")
             else:
                 metrics['elapsed_time'] = original_elapsed
                 logger.warning(f"Using original elapsed time: {original_elapsed} seconds")
@@ -430,6 +479,8 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         return metrics
     except Exception as e:
         logger.error(f"Error building metrics: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise
 
 def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadata, corrected_distance=None):
