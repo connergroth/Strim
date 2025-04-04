@@ -326,6 +326,14 @@ def get_activities():
 def download_fit():
     """Download activity data, modify old activity, and create new one with original time."""
     try:
+        # Import necessary modules
+        import json
+        import time
+        import random
+        import datetime
+        import traceback
+        import requests
+        
         # Get token using helper function
         token = get_token_from_request()
         
@@ -411,9 +419,6 @@ def download_fit():
         # Step 4: Modify the original activity to avoid duplicate detection
         app.logger.info(f"Modifying original activity {activity_id} to avoid duplicate detection")
         
-        # Save original time before modification
-        import datetime
-        
         # Parse the original time from the activity metadata
         original_time = None
         try:
@@ -430,7 +435,6 @@ def download_fit():
             app.logger.warning(f"Could not parse original time: {str(e)}")
         
         # Add a random suffix to the original activity's name
-        import random
         random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
         new_name = f"{original_name} {random_suffix}"
         
@@ -450,7 +454,6 @@ def download_fit():
         app.logger.info(f"Successfully modified original activity name to: {new_name}")
         
         # Wait a moment for Strava to process the changes
-        import time
         time.sleep(1)
         
         # Step 5: Create new activity with the trimmed metrics but preserving original time
@@ -486,7 +489,8 @@ def download_fit():
         })
 
     except Exception as e:
-        app.logger.error(f"Error in /download-fit: {str(e)}\n{traceback.format_exc()}")
+        app.logger.error(f"Error in /download-fit: {str(e)}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 @app.route("/update-distance", methods=["POST"])
