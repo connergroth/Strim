@@ -324,6 +324,7 @@ def get_activities():
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
+    """Download activity data, process it, and re-upload to Strava."""
     try:
         # Get token using helper function
         token = get_token_from_request()
@@ -382,28 +383,14 @@ def download_fit():
             app.logger.error(f"Failed to get activity streams: {response.status_code} {response.text}")
             return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
 
-        stream_data = response.json()
-        app.logger.info(f"Retrieved streams response of type: {type(stream_data)}")
+        # Get stream data and log response content for debugging
+        stream_data = response.text
+        app.logger.info(f"Retrieved streams response type: {type(stream_data)}")
+        app.logger.info(f"Response content first 100 chars: {stream_data[:100]}...")
 
         # Process streams to determine trim point and new metrics
         try:
-            # If stream_data is a single string, check if it needs parsing
-            if isinstance(stream_data, str):
-                app.logger.warning("Stream data is a string, attempting to parse")
-                try:
-                    import json
-                    stream_data = json.loads(stream_data)
-                except:
-                    app.logger.error("Failed to parse stream data string")
-                    return jsonify({"error": "Invalid stream data format"}), 500
-            
-            # Ensure we're passing the proper format to the trimmer
-            if not isinstance(stream_data, list):
-                app.logger.error(f"Expected stream_data to be a list, got {type(stream_data)}")
-                return jsonify({"error": "Invalid stream data format"}), 500
-                
-        # Step 3: Process streams to determine trim point and new metrics
-        try:
+            # Process the streams data
             trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
                 activity_id, 
                 stream_data, 
@@ -417,6 +404,7 @@ def download_fit():
             app.logger.info(f"Calculated trimmed metrics: {trimmed_metrics}")
         except Exception as e:
             app.logger.error(f"Error processing streams: {str(e)}")
+            app.logger.error(traceback.format_exc())
             return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
 
         # Step 4: Delete old activity from Strava

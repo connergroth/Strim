@@ -104,7 +104,7 @@ def streams_to_dataframe(stream_data):
     Convert Strava streams to a pandas DataFrame.
     
     Args:
-        stream_data (list): List of stream dictionaries from Strava API
+        stream_data (list or str): List of stream dictionaries from Strava API or JSON string
         
     Returns:
         pandas.DataFrame: DataFrame containing stream data
@@ -116,6 +116,16 @@ def streams_to_dataframe(stream_data):
         # Log the stream data type for debugging
         logger.info(f"Stream data type: {type(stream_data)}")
         
+        # Handle JSON string input
+        if isinstance(stream_data, str):
+            try:
+                import json
+                stream_data = json.loads(stream_data)
+                logger.info(f"Parsed JSON string into: {type(stream_data)}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON string: {str(e)}")
+                return None
+            
         # Handle both a single stream and multiple streams
         if isinstance(stream_data, list):
             # Process each stream in the list
@@ -158,7 +168,11 @@ def streams_to_dataframe(stream_data):
         
     except Exception as e:
         logger.error(f"Error converting streams to DataFrame: {str(e)}")
-        logger.error(f"Stream data: {stream_data[:100] if isinstance(stream_data, list) else stream_data}")
+        # Log a sample of the stream data for debugging
+        if isinstance(stream_data, list) and len(stream_data) > 0:
+            logger.error(f"First stream object: {stream_data[0]}")
+        elif isinstance(stream_data, str):
+            logger.error(f"Stream data (first 100 chars): {stream_data[:100]}...")
         return None
 
 def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration=30):
@@ -392,7 +406,7 @@ def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadat
     
     Args:
         activity_id (str): Strava activity ID
-        stream_data (list): Stream data from Strava API
+        stream_data (list or str): Stream data from Strava API (can be a JSON string or already parsed data)
         activity_metadata (dict): Activity metadata from Strava API
         corrected_distance (float, optional): New distance in meters
         
@@ -401,6 +415,19 @@ def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadat
     """
     try:
         logger.info(f"Processing activity {activity_id}")
+        
+        # If stream_data is a string, try to parse it as JSON
+        if isinstance(stream_data, str):
+            try:
+                import json
+                logger.info("Received stream_data as string, attempting to parse as JSON")
+                # Log a sample of the stream data
+                logger.info(f"Stream data sample (first 100 chars): {stream_data[:100]}...")
+                stream_data = json.loads(stream_data)
+                logger.info(f"Successfully parsed JSON into {type(stream_data)}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse stream_data as JSON: {str(e)}")
+                return None
         
         # Process the streams data
         metrics = process_streams_data(stream_data, activity_metadata, corrected_distance)
@@ -412,4 +439,5 @@ def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadat
         return metrics
     except Exception as e:
         logger.error(f"Error estimating trimmed activity metrics: {str(e)}")
+        logger.error(traceback.format_exc())  # Log the full traceback for debugging
         raise
