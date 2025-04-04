@@ -324,7 +324,7 @@ def get_activities():
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
-    """Download activity data, process it, and re-upload to Strava."""
+    """Download activity data, process it, re-upload to Strava, and make original private."""
     try:
         # Get token using helper function
         token = get_token_from_request()
@@ -353,13 +353,14 @@ def download_fit():
 
         app.logger.info(f"Processing activity {activity_id} (edit_distance={edit_distance}, new_distance={new_distance})")
 
-        # Step 1: Get activity details before deletion
+        # Step 1: Get activity details
         activity_metadata = api_utils.get_activity_details(activity_id, token)
         if not activity_metadata:
             return jsonify({"error": "Failed to retrieve activity details"}), 500
             
         # Save the original activity ID for photo/gear references
         activity_metadata["id"] = activity_id
+        original_name = activity_metadata.get("name", "Unknown Activity")
         
         app.logger.info(f"Retrieved activity metadata: {activity_metadata.get('name')}, " 
                       f"type: {activity_metadata.get('type')}, "
@@ -372,8 +373,8 @@ def download_fit():
         params = {
             # Request specific streams
             "keys": "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,moving",
-            # Set to false to ensure we get a list of streams
-            "key_by_type": "false"
+            # The key_by_type parameter affects the response format
+            "key_by_type": "true"  # Changed to true to match the format we're handling
         }
 
         app.logger.info(f"Requesting streams from: {streams_url} with params: {params}")
@@ -383,12 +384,11 @@ def download_fit():
             app.logger.error(f"Failed to get activity streams: {response.status_code} {response.text}")
             return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
 
-        # Get stream data and log response content for debugging
+        # Get stream data
         stream_data = response.text
-        app.logger.info(f"Retrieved streams response type: {type(stream_data)}")
-        app.logger.info(f"Response content first 100 chars: {stream_data[:100]}...")
-
-        # Process streams to determine trim point and new metrics
+        app.logger.info(f"Retrieved streams response of type: {type(stream_data)}")
+        
+        # Step 3: Process streams to determine trim point and new metrics
         try:
             # Process the streams data
             trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
@@ -407,12 +407,17 @@ def download_fit():
             app.logger.error(traceback.format_exc())
             return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
 
-        # Step 4: Delete old activity from Strava
-        app.logger.info(f"Deleting original activity {activity_id}")
-        delete_success = api_utils.delete_activity(activity_id, token)
-        if not delete_success:
-            app.logger.error(f"Failed to delete original activity {activity_id}")
-            return jsonify({"error": "Failed to delete original activity from Strava"}), 500
+        # Step 4: Make original activity private (instead of deleting)
+        app.logger.info(f"Making original activity {activity_id} private")
+        
+        # Prepare a clear name for the old activity
+        private_name = f"[REPLACED] {original_name}"
+        private_success = api_utils.make_activity_private(activity_id, token, private_name)
+        
+        if not private_success:
+            app.logger.error(f"Failed to make original activity {activity_id} private")
+            # Continue anyway - we'll still create the new one
+            app.logger.info("Continuing with creation of new activity")
 
         # Step 5: Create new activity with the trimmed metrics
         app.logger.info(f"Creating new activity with name: {trimmed_metrics['name']}")
@@ -426,6 +431,7 @@ def download_fit():
         return jsonify({
             "success": True, 
             "new_activity_id": new_activity_id,
+            "original_made_private": private_success,
             "token": token  # Include token in response
         })
 

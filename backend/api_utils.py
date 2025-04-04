@@ -36,27 +36,75 @@ def get_access_token():
     logging.info(f"New access token generated (masked: ...{access_token[-4:]})")
     return access_token
 
-def delete_activity(activity_id, access_token):
+def make_activity_private(activity_id, token, new_name=None):
     """
-    Delete an activity from Strava.
+    Change an activity's visibility to private and optionally rename it.
     
     Args:
-        activity_id (str): ID of the activity to delete
-        access_token (str): Valid Strava access token
-    
+        activity_id (str): Strava activity ID
+        token (str): Strava access token
+        new_name (str, optional): New name for the activity
+        
     Returns:
         bool: True if successful, False otherwise
     """
-    url = f"https://www.strava.com/api/v3/activities/{activity_id}"
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    response = requests.delete(url, headers=headers)
-
-    if response.status_code == 204:
-        logging.info(f"Activity {activity_id} deleted successfully")
-        return True
-    else:
-        logging.error(f"Failed to delete activity {activity_id}: {response.status_code}")
+    import requests
+    import logging
+    import json
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Ensure activity_id is a string
+        activity_id = str(activity_id)
+        
+        # Log important details (but mask part of the token)
+        masked_token = token[:10] + "..." + token[-5:] if len(token) > 15 else "***"
+        logger.info(f"Making activity {activity_id} private with token {masked_token}")
+        
+        # Construct the update URL
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        
+        # Set up headers with the authorization token
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Payload with private flag set to true
+        payload = {
+            "private": True
+        }
+        
+        # Add new name if provided
+        if new_name:
+            payload["name"] = new_name
+            logger.info(f"Renaming activity to: {new_name}")
+        
+        # Log the request details
+        logger.info(f"Making PUT request to URL: {url} with payload: {payload}")
+        
+        # Send the update request
+        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            logger.info(f"Successfully made activity {activity_id} private")
+            return True
+        else:
+            logger.error(f"Failed to make activity {activity_id} private: {response.status_code}")
+            # Try to log response text if available
+            try:
+                error_detail = response.json()
+                logger.error(f"Error details: {error_detail}")
+            except:
+                logger.error(f"Response text: {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Exception in make_activity_private: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
     
 def get_activity_details(activity_id, access_token):
