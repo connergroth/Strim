@@ -368,6 +368,9 @@ function selectActivity(id, distance) {
             row.classList.remove('selected');
         }
     });
+    
+    // Check if activity has photos and show warning if needed
+    checkForPhotos(id);
 }
 
 /**
@@ -442,36 +445,6 @@ function checkForPhotos(activityId) {
         .catch(error => {
             console.error("Error checking for photos:", error);
         });
-}
-
-/**
- * Warning for activity photos
- */
-function selectActivity(id, distance) {
-    selectedActivityId = id;
-    selectedActivityDistance = distance;
-    
-    // Pre-fill distance field
-    const distanceInput = document.getElementById("newDistance");
-    if (distanceInput) {
-        distanceInput.value = distance;
-    }
-    
-    console.log(`Selected activity: ${id}, distance: ${distance} miles`);
-    
-    // Highlight the selected row
-    const rows = document.querySelectorAll("#activityList tr");
-    rows.forEach(row => {
-        const radio = row.querySelector('input[type="radio"]');
-        if (radio && radio.value === id) {
-            row.classList.add('selected');
-        } else {
-            row.classList.remove('selected');
-        }
-    });
-    
-    // Check if activity has photos and show warning if needed
-    checkForPhotos(id);
 }
 
 /**
