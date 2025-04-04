@@ -73,16 +73,15 @@ def modify_activity_metadata(activity_id, token):
         activity = response.json()
         original_name = activity.get("name", "Activity")
         
-        # Create a unique name that indicates this is being replaced
+        # Create a unique name for the old activity while leaving the new one unchanged
         random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
-        new_name = f"[TO_REPLACE_{random_suffix}] {original_name}"
+        new_name = f"{original_name} {random_suffix}"
         
         # Prepare the payload
         payload = {
             "name": new_name,
             "private": True,  # Make it private to hide it from feeds
-            "description": (activity.get("description", "") or "") + 
-                          "\n\nThis activity is being replaced with a corrected version."
+            "description": activity.get("description", "")
         }
         
         logger.info(f"Modifying activity {activity_id} with new name: {new_name}")
