@@ -45,6 +45,60 @@ def process_streams_data(stream_data, activity_metadata, corrected_distance=None
         logger.error(f"Error processing streams data: {str(e)}")
         raise
 
+def process_strava_streams(stream_data):
+    """
+    Process Strava streams data to ensure it's in a consistent format.
+    Handles both list format and dictionary format that the API might return.
+    
+    Args:
+        stream_data: Stream data from Strava API
+        
+    Returns:
+        list: List of stream objects with 'type' and 'data' keys
+    """
+    if isinstance(stream_data, list):
+        # It's already in the right format (list of stream objects)
+        # Just validate that each object has the expected structure
+        processed_streams = []
+        for stream in stream_data:
+            if isinstance(stream, dict) and 'type' in stream and 'data' in stream:
+                processed_streams.append(stream)
+            else:
+                app.logger.warning(f"Skipping malformed stream: {stream}")
+        return processed_streams
+    
+    elif isinstance(stream_data, dict):
+        # It's in the alternate format (dict with stream types as keys)
+        # Convert to the list format
+        processed_streams = []
+        for stream_type, stream_data_obj in stream_data.items():
+            if isinstance(stream_data_obj, dict) and 'data' in stream_data_obj:
+                # If it's {"time": {"data": [...]}, "distance": {"data": [...]}}
+                stream_obj = stream_data_obj.copy()
+                stream_obj['type'] = stream_type
+                processed_streams.append(stream_obj)
+            else:
+                # If it's {"time": [...], "distance": [...]}
+                processed_streams.append({
+                    'type': stream_type,
+                    'data': stream_data_obj
+                })
+        return processed_streams
+    
+    elif isinstance(stream_data, str):
+        # It might be a JSON string that wasn't parsed
+        app.logger.warning("Stream data is a string, attempting to parse as JSON")
+        try:
+            parsed_data = json.loads(stream_data)
+            return process_strava_streams(parsed_data)
+        except json.JSONDecodeError:
+            app.logger.error("Failed to parse stream data string as JSON")
+            return []
+    
+    else:
+        app.logger.error(f"Unrecognized stream data format: {type(stream_data)}")
+        return []
+
 def streams_to_dataframe(stream_data):
     """
     Convert Strava streams to a pandas DataFrame.
@@ -56,27 +110,38 @@ def streams_to_dataframe(stream_data):
         pandas.DataFrame: DataFrame containing stream data
     """
     try:
-        # Initialize an empty dictionary to store streams
-        data = {}
+        # Initialize an empty dictionary to store data for each stream type
+        data_dict = {}
         
-        # Extract each stream type into the dictionary
-        for stream in stream_data:
-            stream_type = stream.get('type')
-            stream_data = stream.get('data')
-            
-            if stream_type and stream_data:
-                data[stream_type] = stream_data
+        # Log the stream data type for debugging
+        logger.info(f"Stream data type: {type(stream_data)}")
         
-        # Check if we have the minimum required streams (distance)
-        if 'distance' not in data:
-            logger.error("Distance stream not found in stream data")
+        # Handle both a single stream and multiple streams
+        if isinstance(stream_data, list):
+            # Process each stream in the list
+            for stream_obj in stream_data:
+                if isinstance(stream_obj, dict):
+                    stream_type = stream_obj.get('type')
+                    stream_data_points = stream_obj.get('data')
+                    
+                    if stream_type and stream_data_points:
+                        logger.info(f"Found stream type: {stream_type} with {len(stream_data_points)} data points")
+                        data_dict[stream_type] = stream_data_points
+        else:
+            logger.error(f"Expected a list of streams, got {type(stream_data)}")
             return None
-        
-        # Create DataFrame from the streams
-        df = pd.DataFrame(data)
+            
+        # Check if we have the distance stream (required)
+        if 'distance' not in data_dict:
+            logger.error("Required 'distance' stream not found")
+            return None
+            
+        # Create a DataFrame with all available streams
+        # If some streams have different lengths, pandas will fill with NaN
+        df = pd.DataFrame(data_dict)
         
         # Create a time index if time stream is available
-        if 'time' in data:
+        if 'time' in data_dict:
             df['time_seconds'] = df['time']
             
         # If latlng is available, split it into lat and lng columns
@@ -88,10 +153,12 @@ def streams_to_dataframe(stream_data):
             except Exception as e:
                 logger.warning(f"Could not split latlng: {str(e)}")
         
-        logger.info(f"Successfully converted streams to DataFrame with {len(df)} rows")
+        logger.info(f"Successfully created DataFrame with {len(df)} rows and {len(df.columns)} columns")
         return df
+        
     except Exception as e:
         logger.error(f"Error converting streams to DataFrame: {str(e)}")
+        logger.error(f"Stream data: {stream_data[:100] if isinstance(stream_data, list) else stream_data}")
         return None
 
 def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration=30):

@@ -369,18 +369,39 @@ def download_fit():
         streams_url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
         headers = {"Authorization": f"Bearer {token}"}
         params = {
+            # Request specific streams
             "keys": "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,moving",
-            "key_by_type": False  # Return streams as a list
+            # Set to false to ensure we get a list of streams
+            "key_by_type": "false"
         }
-        
+
+        app.logger.info(f"Requesting streams from: {streams_url} with params: {params}")
         response = requests.get(streams_url, headers=headers, params=params)
+
         if response.status_code != 200:
             app.logger.error(f"Failed to get activity streams: {response.status_code} {response.text}")
             return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
-            
+
         stream_data = response.json()
-        app.logger.info(f"Successfully retrieved {len(stream_data)} streams for activity {activity_id}")
-        
+        app.logger.info(f"Retrieved streams response of type: {type(stream_data)}")
+
+        # Process streams to determine trim point and new metrics
+        try:
+            # If stream_data is a single string, check if it needs parsing
+            if isinstance(stream_data, str):
+                app.logger.warning("Stream data is a string, attempting to parse")
+                try:
+                    import json
+                    stream_data = json.loads(stream_data)
+                except:
+                    app.logger.error("Failed to parse stream data string")
+                    return jsonify({"error": "Invalid stream data format"}), 500
+            
+            # Ensure we're passing the proper format to the trimmer
+            if not isinstance(stream_data, list):
+                app.logger.error(f"Expected stream_data to be a list, got {type(stream_data)}")
+                return jsonify({"error": "Invalid stream data format"}), 500
+                
         # Step 3: Process streams to determine trim point and new metrics
         try:
             trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
