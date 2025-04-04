@@ -1,256 +1,348 @@
-from fitparse import FitFile
 import pandas as pd
-import xml.etree.ElementTree as ET
-import os
 import logging
+import numpy as np
+from datetime import datetime, timedelta
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-UPLOAD_FOLDER = "uploads"
-
-def load_fit(file_path):
+def process_streams_data(stream_data, activity_metadata, corrected_distance=None):
     """
-    Load a FIT file and convert it to a pandas DataFrame.
+    Process Strava streams data: detect stops, trim data, and return trimmed metrics.
     
     Args:
-        file_path (str): Path to the FIT file
-        
-    Returns:
-        pandas.DataFrame: DataFrame containing the activity data
-    """
-    try:
-        logger.info(f"Loading FIT file: {file_path}")
-        
-        if not os.path.exists(file_path):
-            logger.error(f"FIT file does not exist: {file_path}")
-            raise FileNotFoundError(f"File not found: {file_path}")
-            
-        fitFile = FitFile(file_path)
-        records = []
-
-        for record in fitFile.get_messages("record"):
-            record_data = record.get_values()
-            records.append({
-                "timestamp": record_data.get("timestamp"),
-                "distance": record_data.get("distance"),
-                "heart_rate": record_data.get("heart_rate"),
-                "position_lat": record_data.get("position_lat"),
-                "position_long": record_data.get("position_long"),
-                "altitude": record_data.get("altitude"),
-                "speed": record_data.get("speed"),
-                "cadence": record_data.get("cadence"),
-            })
-        
-        df = pd.DataFrame(records)
-        logger.info(f"Successfully loaded FIT file with {len(df)} records")
-        return df
-    except Exception as e:
-        logger.error(f"Error loading FIT file: {str(e)}")
-        raise
-
-def detect_stop(df):
-    """
-    Detect when the activity stops (no distance change) and return the timestamp.
-    
-    Args:
-        df (pandas.DataFrame): DataFrame containing the activity data
-        
-    Returns:
-        datetime: Timestamp of the detected stop
-    """
-    try:
-        if df.empty:
-            logger.warning("Empty DataFrame provided to detect_stop")
-            return None
-            
-        # Only keep rows with distance values
-        df = df.dropna(subset=["distance"])
-        
-        if df.empty:
-            logger.warning("No distance data found in activity")
-            return None
-            
-        # Create a copy to avoid SettingWithCopyWarning
-        df = df.copy()
-        
-        # Calculate distance differences between consecutive points
-        df["distance_diff"] = df["distance"].diff()
-
-        # Look for first instance where distance doesn't change
-        for index, row in df.iterrows():
-            if row["distance_diff"] == 0:
-                logger.info(f"Stop detected at timestamp: {row['timestamp']}")
-                return row["timestamp"]
-        
-        # If no stop is found, return the max timestamp
-        logger.info("No stop detected, using max timestamp")
-        return df["timestamp"].max()
-    except Exception as e:
-        logger.error(f"Error detecting stop: {str(e)}")
-        raise
-
-def trim(df, end_timestamp, corrected_distance=None):
-    """
-    Trim the activity data to the given end timestamp and optionally correct the distance.
-    
-    Args:
-        df (pandas.DataFrame): DataFrame containing the activity data
-        end_timestamp (datetime): Timestamp to trim the activity to
-        corrected_distance (float, optional): New distance to scale the activity to
-        
-    Returns:
-        pandas.DataFrame: Trimmed and optionally distance-corrected DataFrame
-    """
-    try:
-        if df.empty:
-            logger.warning("Empty DataFrame provided to trim")
-            return df
-            
-        if end_timestamp is None:
-            logger.warning("No end timestamp provided, returning original data")
-            return df
-            
-        # Trim data to end timestamp
-        trimmed_df = df[df["timestamp"] <= end_timestamp].copy()
-        logger.info(f"Trimmed activity from {len(df)} to {len(trimmed_df)} records")
-        
-        # Apply distance correction if provided
-        if corrected_distance and corrected_distance > 0:
-            max_distance = trimmed_df["distance"].max()
-            if max_distance > 0:  # Prevent division by zero
-                distance_ratio = corrected_distance / max_distance
-                trimmed_df["distance"] = trimmed_df["distance"] * distance_ratio
-                logger.info(f"Corrected distance from {max_distance} to {corrected_distance}")
-            else:
-                logger.warning("Max distance is 0, could not apply distance correction")
-
-        return trimmed_df
-    except Exception as e:
-        logger.error(f"Error trimming data: {str(e)}")
-        raise
-
-def convert_to_tcx(df, output_file, corrected_pace=None):
-    """
-    Convert the activity data to TCX format and save to a file.
-    
-    Args:
-        df (pandas.DataFrame): DataFrame containing the activity data
-        output_file (str): Path to save the TCX file
-        corrected_pace (float, optional): New pace to include in the TCX file
-        
-    Returns:
-        str: Path to the saved TCX file
-    """
-    try:
-        if df.empty:
-            logger.warning("Empty DataFrame provided to convert_to_tcx")
-            raise ValueError("Cannot create TCX from empty data")
-            
-        # Create TCX structure
-        tcx = ET.Element("TrainingCenterDatabase", {
-            "xmlns": "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2",
-            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-            "xsi:schemaLocation": "http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd"
-        })
-        
-        activities = ET.SubElement(tcx, "Activities")
-        activity = ET.SubElement(activities, "Activity", Sport="Running")
-
-        # Set activity start time
-        start_time = df["timestamp"].iloc[0].isoformat() + "Z"
-        ET.SubElement(activity, "Id").text = start_time
-
-        # Create lap element
-        lap = ET.SubElement(activity, "Lap", StartTime=start_time)
-        
-        # Calculate total time in seconds
-        total_time = (df["timestamp"].max() - df["timestamp"].min()).total_seconds()
-        ET.SubElement(lap, "TotalTimeSeconds").text = str(total_time)
-        
-        # Set distance
-        max_distance = df["distance"].max()
-        ET.SubElement(lap, "DistanceMeters").text = str(max_distance)
-
-        # Set pace if provided
-        if corrected_pace:
-            pace_mps = (1 / corrected_pace) * 26.8224  # Convert min/mile to m/s
-            ET.SubElement(lap, "AvgSpeed").text = str(pace_mps)
-
-        # Create track element
-        track = ET.SubElement(lap, "Track")
-
-        # Add trackpoints
-        for _, row in df.iterrows():
-            trackpoint = ET.SubElement(track, "Trackpoint")
-            ET.SubElement(trackpoint, "Time").text = row["timestamp"].isoformat() + "Z"
-
-            # Add position if available
-            if not pd.isna(row["position_lat"]) and not pd.isna(row["position_long"]):
-                position = ET.SubElement(trackpoint, "Position")
-                ET.SubElement(position, "LatitudeDegrees").text = str(row["position_lat"])
-                ET.SubElement(position, "LongitudeDegrees").text = str(row["position_long"])
-
-            # Add altitude if available
-            if not pd.isna(row["altitude"]):
-                ET.SubElement(trackpoint, "AltitudeMeters").text = str(row["altitude"])
-
-            # Add distance if available
-            if not pd.isna(row["distance"]):
-                ET.SubElement(trackpoint, "DistanceMeters").text = str(row["distance"])
-
-            # Add heart rate if available
-            if not pd.isna(row["heart_rate"]):
-                heart_rate_element = ET.SubElement(trackpoint, "HeartRateBpm")
-                ET.SubElement(heart_rate_element, "Value").text = str(int(row["heart_rate"]))
-
-            # Add cadence if available
-            if not pd.isna(row["cadence"]):
-                ET.SubElement(trackpoint, "Cadence").text = str(int(row["cadence"]))
-
-        # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else '.', exist_ok=True)
-        
-        # Write TCX file
-        tree = ET.ElementTree(tcx)
-        tree.write(output_file, encoding="utf-8", xml_declaration=True)
-        logger.info(f"Successfully wrote TCX file to {output_file}")
-
-        return output_file
-    except Exception as e:
-        logger.error(f"Error converting to TCX: {str(e)}")
-        raise
-
-def process_file(file_path, corrected_distance=None):
-    """
-    Process a FIT file: load it, detect stops, trim it, and convert to TCX.
-    
-    Args:
-        file_path (str): Path to the FIT file
+        stream_data (dict): Dictionary of streams from Strava API
+        activity_metadata (dict): Activity metadata from Strava API
         corrected_distance (float, optional): New distance in meters
         
     Returns:
-        str: Path to the generated TCX file
+        dict: Trimmed activity metrics
     """
     try:
-        logger.info(f"Processing file: {file_path}")
+        logger.info("Processing streams data")
         
-        # Step 1: Load the FIT file
-        df = load_fit(file_path)
+        # Convert stream data to DataFrame
+        df = streams_to_dataframe(stream_data)
+        if df is None or df.empty:
+            logger.error("Failed to convert streams to DataFrame")
+            return None
         
-        # Step 2: Detect when the activity stops
-        end_timestamp = detect_stop(df)
+        # Detect when the activity stops
+        end_index = detect_stop_from_streams(df)
+        if end_index is None:
+            logger.warning("Could not detect stop point, using full activity")
+            end_index = len(df) - 1
         
-        # Step 3: Trim the data
-        trimmed_df = trim(df, end_timestamp, corrected_distance)
+        # Trim the data
+        trimmed_df = df.iloc[:end_index+1].copy()
+        logger.info(f"Trimmed activity from {len(df)} to {len(trimmed_df)} points")
         
-        # Step 4: Convert to TCX
-        base_name = os.path.basename(file_path)
-        trimmed_tcx = os.path.join(UPLOAD_FOLDER, f"trimmed_{base_name.replace('.fit', '.tcx')}")
-        convert_to_tcx(trimmed_df, trimmed_tcx)
+        # Build metrics for the trimmed activity
+        metrics = build_trimmed_metrics(trimmed_df, activity_metadata, corrected_distance)
         
-        logger.info(f"Successfully processed file, TCX saved at: {trimmed_tcx}")
-        return trimmed_tcx
+        return metrics
     except Exception as e:
-        logger.error(f"Error processing file: {str(e)}")
+        logger.error(f"Error processing streams data: {str(e)}")
+        raise
+
+def streams_to_dataframe(stream_data):
+    """
+    Convert Strava streams to a pandas DataFrame.
+    
+    Args:
+        stream_data (list): List of stream dictionaries from Strava API
+        
+    Returns:
+        pandas.DataFrame: DataFrame containing stream data
+    """
+    try:
+        # Initialize an empty dictionary to store streams
+        data = {}
+        
+        # Extract each stream type into the dictionary
+        for stream in stream_data:
+            stream_type = stream.get('type')
+            stream_data = stream.get('data')
+            
+            if stream_type and stream_data:
+                data[stream_type] = stream_data
+        
+        # Check if we have the minimum required streams (distance)
+        if 'distance' not in data:
+            logger.error("Distance stream not found in stream data")
+            return None
+        
+        # Create DataFrame from the streams
+        df = pd.DataFrame(data)
+        
+        # Create a time index if time stream is available
+        if 'time' in data:
+            df['time_seconds'] = df['time']
+            
+        # If latlng is available, split it into lat and lng columns
+        if 'latlng' in df.columns:
+            try:
+                df['lat'] = df['latlng'].apply(lambda x: x[0] if isinstance(x, list) and len(x) >= 2 else None)
+                df['lng'] = df['latlng'].apply(lambda x: x[1] if isinstance(x, list) and len(x) >= 2 else None)
+                df.drop('latlng', axis=1, inplace=True)
+            except Exception as e:
+                logger.warning(f"Could not split latlng: {str(e)}")
+        
+        logger.info(f"Successfully converted streams to DataFrame with {len(df)} rows")
+        return df
+    except Exception as e:
+        logger.error(f"Error converting streams to DataFrame: {str(e)}")
+        return None
+
+def detect_stop_from_streams(df, flat_tolerance=1.0, flat_window=5, min_duration=30):
+    """
+    Detect when the user stopped moving by analyzing distance stream.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame with stream data
+        flat_tolerance (float): Tolerance for distance changes (in meters)
+        flat_window (int): Number of consecutive flat points to detect stop
+        min_duration (int): Minimum duration in seconds to consider as a stop
+        
+    Returns:
+        int: Index where stop was detected, or None if no stop detected
+    """
+    try:
+        if 'distance' not in df.columns:
+            logger.warning("No distance data available for stop detection")
+            return None
+        
+        # Calculate distance changes
+        df_temp = df.copy()
+        df_temp['distance_diff'] = df_temp['distance'].diff().fillna(0)
+        
+        # Mark points where distance didn't change significantly
+        df_temp['is_flat'] = df_temp['distance_diff'].abs() <= flat_tolerance
+        
+        # Look for consecutive flat points
+        consecutive_flat = 0
+        stop_index = None
+        
+        for idx, row in df_temp.iterrows():
+            if row['is_flat']:
+                consecutive_flat += 1
+                if consecutive_flat >= flat_window:
+                    stop_index = idx - flat_window + 1
+                    break
+            else:
+                consecutive_flat = 0
+        
+        if stop_index is not None:
+            logger.info(f"Detected stop at index {stop_index}, distance {df.loc[stop_index, 'distance']:.2f}m")
+            return stop_index
+        
+        # Alternative method: find a significant stop in the activity
+        # Look for places where the distance doesn't change for a while
+        flat_regions = []
+        current_flat = None
+        
+        for idx, row in df_temp.iterrows():
+            if row['is_flat']:
+                if current_flat is None:
+                    current_flat = {'start': idx, 'count': 1}
+                else:
+                    current_flat['count'] += 1
+            else:
+                if current_flat is not None and current_flat['count'] >= 3:  # At least 3 points of no movement
+                    # Calculate duration of the flat region if time data is available
+                    if 'time' in df_temp.columns:
+                        start_time = df_temp.loc[current_flat['start'], 'time']
+                        end_time = df_temp.loc[idx-1, 'time']
+                        duration = end_time - start_time
+                        current_flat['duration'] = duration
+                    elif 'time_seconds' in df_temp.columns:
+                        start_time = df_temp.loc[current_flat['start'], 'time_seconds']
+                        end_time = df_temp.loc[idx-1, 'time_seconds']
+                        duration = end_time - start_time
+                        current_flat['duration'] = duration
+                    else:
+                        current_flat['duration'] = current_flat['count'] * 1  # Assume 1 second per data point if no time data
+                        
+                    flat_regions.append(current_flat)
+                current_flat = None
+        
+        # Add the last region if it's flat
+        if current_flat is not None and current_flat['count'] >= 3:
+            # Calculate duration for the last flat region
+            if 'time' in df_temp.columns:
+                start_time = df_temp.loc[current_flat['start'], 'time']
+                end_time = df_temp.loc[df_temp.index[-1], 'time']
+                duration = end_time - start_time
+                current_flat['duration'] = duration
+            elif 'time_seconds' in df_temp.columns:
+                start_time = df_temp.loc[current_flat['start'], 'time_seconds']
+                end_time = df_temp.loc[df_temp.index[-1], 'time_seconds']
+                duration = end_time - start_time
+                current_flat['duration'] = duration
+            else:
+                current_flat['duration'] = current_flat['count'] * 1
+                
+            flat_regions.append(current_flat)
+        
+        # Filter regions by minimum duration
+        significant_stops = [region for region in flat_regions if region.get('duration', 0) >= min_duration]
+        
+        # If we have significant stops, sort by position in the activity (prioritize earlier stops)
+        if significant_stops:
+            # Sort by position (start index) to find the first significant stop
+            significant_stops.sort(key=lambda x: x['start'])
+            stop_index = significant_stops[0]['start']
+            logger.info(f"Detected significant stop at index {stop_index}, duration: {significant_stops[0].get('duration', 'unknown')} seconds")
+            return stop_index
+            
+        # If no significant stops found, sort all flat regions by length (longest first)
+        if flat_regions:
+            flat_regions.sort(key=lambda x: x['count'], reverse=True)
+            stop_index = flat_regions[0]['start']
+            logger.info(f"Detected flat region at index {stop_index}, with {flat_regions[0]['count']} points")
+            return stop_index
+        
+        logger.info("No stop detected, using complete activity")
+        return None
+    except Exception as e:
+        logger.error(f"Error detecting stop: {str(e)}")
+        return None
+
+def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
+    """
+    Build metrics for a trimmed activity.
+    
+    Args:
+        df (pandas.DataFrame): Trimmed DataFrame with stream data
+        activity_metadata (dict): Original activity metadata
+        corrected_distance (float, optional): New distance in meters
+        
+    Returns:
+        dict: Metrics for the trimmed activity
+    """
+    try:
+        metrics = {}
+        
+        # Copy basic metadata
+        metrics['name'] = activity_metadata.get('name', 'Trimmed Activity')
+        metrics['type'] = activity_metadata.get('type', 'Run')
+        metrics['start_date_local'] = activity_metadata.get('start_date_local')
+        
+        # Preserve original description if it exists, otherwise create new one
+        original_description = activity_metadata.get('description', '')
+        if original_description:
+            metrics['description'] = f"{original_description}\n\n(Trimmed with Strim - Stops removed)"
+        else:
+            metrics['description'] = 'Trimmed with Strim - Stops removed'
+            
+        # Copy additional metadata for preservation
+        if 'gear_id' in activity_metadata:
+            metrics['gear_id'] = activity_metadata.get('gear_id')
+            
+        if 'photos' in activity_metadata:
+            metrics['photos'] = activity_metadata.get('photos')
+            
+        # Preserve the original activity ID for reference
+        if 'id' in activity_metadata:
+            metrics['original_activity_id'] = activity_metadata.get('id')
+        
+        # Extract metrics from the trimmed data
+        if 'distance' in df.columns:
+            max_distance = df['distance'].max()
+            
+            # Apply distance correction if provided
+            if corrected_distance and corrected_distance > 0:
+                metrics['distance'] = corrected_distance
+                logger.info(f"Corrected distance from {max_distance}m to {corrected_distance}m")
+            else:
+                metrics['distance'] = max_distance
+                logger.info(f"Using original distance: {max_distance}m")
+        
+        # Calculate elapsed time
+        if 'time' in df.columns:
+            metrics['elapsed_time'] = int(df['time'].max())
+            logger.info(f"Elapsed time: {metrics['elapsed_time']} seconds")
+        elif 'time_seconds' in df.columns:
+            metrics['elapsed_time'] = int(df['time_seconds'].max())
+            logger.info(f"Elapsed time: {metrics['elapsed_time']} seconds")
+        else:
+            # If no time stream is available, estimate from original
+            original_elapsed = activity_metadata.get('elapsed_time', 0)
+            original_distance = activity_metadata.get('distance', 0)
+            
+            if original_distance > 0:
+                distance_ratio = metrics['distance'] / original_distance
+                metrics['elapsed_time'] = int(original_elapsed * distance_ratio)
+                logger.info(f"Estimated elapsed time: {metrics['elapsed_time']} seconds")
+            else:
+                metrics['elapsed_time'] = original_elapsed
+                logger.warning(f"Using original elapsed time: {original_elapsed} seconds")
+        
+        # Copy additional metadata
+        metrics['trainer'] = activity_metadata.get('trainer', False)
+        metrics['commute'] = activity_metadata.get('commute', False)
+        
+        # Preserve additional metadata that Strava accepts
+        for field in ['private', 'sport_type', 'workout_type', 'hide_from_home']:
+            if field in activity_metadata:
+                metrics[field] = activity_metadata[field]
+        
+        # Calculate average speeds, heart rate, etc. if available
+        if 'heartrate' in df.columns:
+            metrics['average_heartrate'] = float(df['heartrate'].mean())
+        elif 'average_heartrate' in activity_metadata:
+            metrics['average_heartrate'] = activity_metadata['average_heartrate']
+        
+        if 'cadence' in df.columns:
+            metrics['average_cadence'] = float(df['cadence'].mean())
+        elif 'average_cadence' in activity_metadata:
+            metrics['average_cadence'] = activity_metadata['average_cadence']
+        
+        if 'velocity_smooth' in df.columns:
+            metrics['average_speed'] = float(df['velocity_smooth'].mean())
+        elif 'average_speed' in activity_metadata:
+            metrics['average_speed'] = activity_metadata['average_speed']
+            
+        # Preserve elevation data if available
+        if 'altitude' in df.columns:
+            metrics['total_elevation_gain'] = max(0, df['altitude'].max() - df['altitude'].min())
+        elif 'total_elevation_gain' in activity_metadata:
+            # Scale elevation based on distance ratio
+            original_distance = activity_metadata.get('distance', 0)
+            if original_distance > 0:
+                distance_ratio = metrics['distance'] / original_distance
+                metrics['total_elevation_gain'] = activity_metadata['total_elevation_gain'] * distance_ratio
+        
+        logger.info(f"Built metrics for trimmed activity: {metrics['name']}")
+        return metrics
+    except Exception as e:
+        logger.error(f"Error building metrics: {str(e)}")
+        raise
+
+def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadata, corrected_distance=None):
+    """
+    Main function to estimate metrics for a trimmed activity.
+    
+    Args:
+        activity_id (str): Strava activity ID
+        stream_data (list): Stream data from Strava API
+        activity_metadata (dict): Activity metadata from Strava API
+        corrected_distance (float, optional): New distance in meters
+        
+    Returns:
+        dict: Metrics for creating a new trimmed activity
+    """
+    try:
+        logger.info(f"Processing activity {activity_id}")
+        
+        # Process the streams data
+        metrics = process_streams_data(stream_data, activity_metadata, corrected_distance)
+        
+        if not metrics:
+            logger.error("Failed to generate metrics for trimmed activity")
+            return None
+        
+        return metrics
+    except Exception as e:
+        logger.error(f"Error estimating trimmed activity metrics: {str(e)}")
         raise

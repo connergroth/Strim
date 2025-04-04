@@ -88,7 +88,6 @@ def get_activity_details(activity_id, access_token):
         logging.error(f"Failed to retrieve activity {activity_id}: {response.status_code}")
         return None
 
-
 def create_activity(access_token, metadata):
     """
     Create a new activity on Strava.
@@ -103,26 +102,40 @@ def create_activity(access_token, metadata):
     url = "https://www.strava.com/api/v3/activities"
     headers = {"Authorization": f"Bearer {access_token}"}
     
+    # Prepare the activity data
     activity_data = {
-        "name": metadata["name"],
-        "type": metadata["type"],
-        "distance": metadata["distance"],
-        "elapsed_time": metadata["elapsed_time"],
-        "description": metadata.get("description", ""),
-        "trainer": metadata.get("trainer", 0),
-        "commute": metadata.get("commute", 0)
+        "name": metadata.get("name", "Trimmed Activity"),
+        "type": metadata.get("type", "Run"),
+        "start_date_local": metadata.get("start_date_local"),
+        "elapsed_time": int(metadata.get("elapsed_time", 0)),
+        "description": metadata.get("description", "Trimmed with Strim"),
+        "distance": float(metadata.get("distance", 0)),
+        "trainer": int(metadata.get("trainer", 0)),
+        "commute": int(metadata.get("commute", 0))
     }
+    
+    # Add optional fields if available
+    if "average_heartrate" in metadata:
+        activity_data["average_heartrate"] = float(metadata["average_heartrate"])
+    
+    if "average_cadence" in metadata:
+        activity_data["average_cadence"] = float(metadata["average_cadence"])
+    
+    if "average_speed" in metadata:
+        activity_data["average_speed"] = float(metadata["average_speed"])
 
+    # Log the data being sent (excluding sensitive info)
+    logging.info(f"Creating activity with data: {activity_data}")
+    
     response = requests.post(url, headers=headers, data=activity_data)
 
-    if response.status_code == 201:
-        new_activity_id = response.json()['id']
+    if response.status_code in [200, 201]:
+        new_activity_id = response.json().get('id')
         logging.info(f"New activity created successfully: {new_activity_id}")
         return new_activity_id
     else:
         logging.error(f"Failed to create activity: {response.status_code} {response.text}")
         return None
-
 
 def upload_tcx(access_token, file_path, activity_name="Trimmed Activity"):
     """
