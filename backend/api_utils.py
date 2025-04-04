@@ -36,14 +36,13 @@ def get_access_token():
     logging.info(f"New access token generated (masked: ...{access_token[-4:]})")
     return access_token
 
-def make_activity_private(activity_id, token, new_name=None):
+def modify_activity_metadata(activity_id, token):
     """
-    Change an activity's visibility to private and optionally rename it.
+    Modify an activity's metadata enough to avoid duplicate detection when recreating.
     
     Args:
         activity_id (str): Strava activity ID
         token (str): Strava access token
-        new_name (str, optional): New name for the activity
         
     Returns:
         bool: True if successful, False otherwise
@@ -51,58 +50,55 @@ def make_activity_private(activity_id, token, new_name=None):
     import requests
     import logging
     import json
+    import random
     
     logger = logging.getLogger(__name__)
     
     try:
-        # Ensure activity_id is a string
-        activity_id = str(activity_id)
-        
-        # Log important details (but mask part of the token)
-        masked_token = token[:10] + "..." + token[-5:] if len(token) > 15 else "***"
-        logger.info(f"Making activity {activity_id} private with token {masked_token}")
-        
-        # Construct the update URL
+        # Prepare the request URL
         url = f"https://www.strava.com/api/v3/activities/{activity_id}"
         
-        # Set up headers with the authorization token
+        # Set up headers
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
         
-        # Payload with private flag set to true
+        # Get current activity details
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            logger.error(f"Failed to get activity details: {response.status_code}")
+            return False
+            
+        activity = response.json()
+        original_name = activity.get("name", "Activity")
+        
+        # Create a unique name that indicates this is being replaced
+        random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
+        new_name = f"[TO_REPLACE_{random_suffix}] {original_name}"
+        
+        # Prepare the payload
         payload = {
-            "private": True
+            "name": new_name,
+            "private": True,  # Make it private to hide it from feeds
+            "description": (activity.get("description", "") or "") + 
+                          "\n\nThis activity is being replaced with a corrected version."
         }
         
-        # Add new name if provided
-        if new_name:
-            payload["name"] = new_name
-            logger.info(f"Renaming activity to: {new_name}")
-        
-        # Log the request details
-        logger.info(f"Making PUT request to URL: {url} with payload: {payload}")
+        logger.info(f"Modifying activity {activity_id} with new name: {new_name}")
         
         # Send the update request
-        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        update_response = requests.put(url, headers=headers, data=json.dumps(payload))
         
-        # Check if the request was successful
-        if response.status_code == 200:
-            logger.info(f"Successfully made activity {activity_id} private")
+        if update_response.status_code == 200:
+            logger.info(f"Successfully modified activity {activity_id}")
             return True
         else:
-            logger.error(f"Failed to make activity {activity_id} private: {response.status_code}")
-            # Try to log response text if available
-            try:
-                error_detail = response.json()
-                logger.error(f"Error details: {error_detail}")
-            except:
-                logger.error(f"Response text: {response.text}")
+            logger.error(f"Failed to modify activity: {update_response.status_code} {update_response.text}")
             return False
             
     except Exception as e:
-        logger.error(f"Exception in make_activity_private: {str(e)}")
+        logger.error(f"Error modifying activity: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return False

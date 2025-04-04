@@ -324,7 +324,7 @@ def get_activities():
 
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
-    """Download activity data, process it, re-upload to Strava, and make original private."""
+    """Download activity data, modify old activity, and create new one."""
     try:
         # Get token using helper function
         token = get_token_from_request()
@@ -358,7 +358,7 @@ def download_fit():
         if not activity_metadata:
             return jsonify({"error": "Failed to retrieve activity details"}), 500
             
-        # Save the original activity ID for photo/gear references
+        # Save the original activity ID
         activity_metadata["id"] = activity_id
         original_name = activity_metadata.get("name", "Unknown Activity")
         
@@ -374,7 +374,7 @@ def download_fit():
             # Request specific streams
             "keys": "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,moving",
             # The key_by_type parameter affects the response format
-            "key_by_type": "true"  # Changed to true to match the format we're handling
+            "key_by_type": "true" 
         }
 
         app.logger.info(f"Requesting streams from: {streams_url} with params: {params}")
@@ -386,7 +386,6 @@ def download_fit():
 
         # Get stream data
         stream_data = response.text
-        app.logger.info(f"Retrieved streams response of type: {type(stream_data)}")
         
         # Step 3: Process streams to determine trim point and new metrics
         try:
@@ -407,21 +406,46 @@ def download_fit():
             app.logger.error(traceback.format_exc())
             return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
 
-        # Step 4: Make original activity private (instead of deleting)
-        app.logger.info(f"Making original activity {activity_id} private")
+        # Step 4: Modify the original activity to avoid duplicate detection
+        app.logger.info(f"Modifying original activity {activity_id} to avoid duplicate detection")
+        modify_success = api_utils.modify_activity_metadata(activity_id, token)
         
-        # Prepare a clear name for the old activity
-        private_name = f"[REPLACED] {original_name}"
-        private_success = api_utils.make_activity_private(activity_id, token, private_name)
+        if not modify_success:
+            app.logger.warning(f"Failed to modify original activity {activity_id}, but continuing")
+            # Continue anyway, since it might still work
         
-        if not private_success:
-            app.logger.error(f"Failed to make original activity {activity_id} private")
-            # Continue anyway - we'll still create the new one
-            app.logger.info("Continuing with creation of new activity")
-
         # Step 5: Create new activity with the trimmed metrics
+        # Ensure we're creating a unique activity
+        import time
+        import random
+        
+        # Add a suffix to ensure uniqueness
+        random_suffix = random.randint(1000, 9999)
+        
+        # Adjust the start time slightly to avoid duplicate detection
+        if "start_date_local" in trimmed_metrics:
+            from datetime import datetime, timedelta
+            try:
+                date_format = "%Y-%m-%dT%H:%M:%SZ"
+                start_date = datetime.strptime(trimmed_metrics["start_date_local"], date_format)
+                
+                # Add a random offset (10-60 seconds) to the start time
+                offset_seconds = random.randint(10, 60)
+                new_start_date = start_date + timedelta(seconds=offset_seconds)
+                trimmed_metrics["start_date_local"] = new_start_date.strftime(date_format)
+                
+                app.logger.info(f"Adjusted start time to: {trimmed_metrics['start_date_local']}")
+            except Exception as e:
+                app.logger.warning(f"Could not adjust start time: {str(e)}")
+        
+        # Set a unique activity name
+        original_trim_name = trimmed_metrics.get("name", "Activity")
+        trimmed_metrics["name"] = f"[TRIMMED] {original_trim_name} ({random_suffix})"
+        
+        # Create the new activity
         app.logger.info(f"Creating new activity with name: {trimmed_metrics['name']}")
         new_activity_id = api_utils.create_activity(token, trimmed_metrics)
+        
         if not new_activity_id:
             app.logger.error("Failed to create new activity")
             return jsonify({"error": "Failed to create new activity on Strava"}), 500
@@ -431,8 +455,9 @@ def download_fit():
         return jsonify({
             "success": True, 
             "new_activity_id": new_activity_id,
-            "original_made_private": private_success,
-            "token": token  # Include token in response
+            "original_activity_id": activity_id,
+            "modified_original": modify_success,
+            "token": token
         })
 
     except Exception as e:
