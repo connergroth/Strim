@@ -36,9 +36,10 @@ def get_access_token():
     logging.info(f"New access token generated (masked: ...{access_token[-4:]})")
     return access_token
 
-def modify_activity_metadata(activity_id, token):
+def modify_activity_aggressively(activity_id, token):
     """
-    Modify an activity's metadata enough to avoid duplicate detection when recreating.
+    Aggressively modify an activity's metadata to avoid duplicate detection.
+    Changes activity type and name to make it clearly different.
     
     Args:
         activity_id (str): Strava activity ID
@@ -50,6 +51,7 @@ def modify_activity_metadata(activity_id, token):
     import requests
     import logging
     import json
+    import time
     import random
     
     logger = logging.getLogger(__name__)
@@ -71,20 +73,28 @@ def modify_activity_metadata(activity_id, token):
             return False
             
         activity = response.json()
-        original_name = activity.get("name", "Activity")
+        original_type = activity.get("type", "Run")
+        timestamp = int(time.time())
         
-        # Create a unique name for the old activity while leaving the new one unchanged
-        random_suffix = ''.join(random.choices('0123456789ABCDEF', k=6))
-        new_name = f"{original_name} {random_suffix}"
+        # Create a completely different name using a timestamp
+        new_name = f"TEMP_{timestamp}_{random.randint(1000, 9999)}"
         
-        # Prepare the payload
+        # Choose a different activity type
+        activity_types = ["Workout", "Walk", "Hike", "VirtualRide", "Yoga"]
+        if original_type in activity_types:
+            activity_types.remove(original_type)
+        new_type = random.choice(activity_types)
+        
+        # Prepare the payload with significant changes
         payload = {
             "name": new_name,
-            "private": True,  # Make it private to hide it from feeds
-            "description": activity.get("description", "")
+            "type": new_type,
+            "private": True,
+            "sport_type": new_type  # Also change sport_type if it exists
         }
         
-        logger.info(f"Modifying activity {activity_id} with new name: {new_name}")
+        logger.info(f"Aggressively modifying activity {activity_id}")
+        logger.info(f"New name: {new_name}, New type: {new_type}")
         
         # Send the update request
         update_response = requests.put(url, headers=headers, data=json.dumps(payload))
