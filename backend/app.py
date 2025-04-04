@@ -476,6 +476,25 @@ def download_fit():
             return jsonify({"error": "Failed to create new activity on Strava"}), 500
 
         app.logger.info(f"Successfully created new activity {new_activity_id}")
+        
+        # Step 6: Clean up the new activity by removing any suffix/prefix from name
+        # and cleaning up the description
+        app.logger.info(f"Cleaning up new activity {new_activity_id}")
+        
+        # Wait a moment to ensure the activity is fully created
+        time.sleep(1)
+        
+        # Get the original description without the "Trimmed with Strim" text
+        original_description = activity_metadata.get('description', '')
+        
+        # Clean up the new activity
+        cleanup_success = api_utils.cleanup_activity(new_activity_id, token, original_name, original_description)
+        
+        if cleanup_success:
+            app.logger.info(f"Successfully cleaned up activity {new_activity_id}")
+        else:
+            app.logger.warning(f"Failed to clean up activity {new_activity_id}, but continuing")
+            # Don't fail the whole process if cleanup fails
 
         # Important: Return only a single success response with all necessary information
         # Include a flag to prevent additional requests

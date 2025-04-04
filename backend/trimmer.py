@@ -524,3 +524,60 @@ def estimate_trimmed_activity_metrics(activity_id, stream_data, activity_metadat
         logger.error(f"Error estimating trimmed activity metrics: {str(e)}")
         logger.error(traceback.format_exc())  # Log the full traceback for debugging
         raise
+
+def cleanup_activity(activity_id, token, original_name, original_description=None):
+    """
+    Clean up the activity by restoring original name and description.
+    
+    Args:
+        activity_id (str): Strava activity ID
+        token (str): Strava access token
+        original_name (str): Original activity name to restore
+        original_description (str, optional): Original description to restore
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    import requests
+    import logging
+    import json
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Prepare the request URL
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Prepare the payload with clean name
+        payload = {
+            "name": original_name
+        }
+        
+        # Add description if provided
+        if original_description is not None:
+            payload["description"] = original_description
+        
+        logger.info(f"Cleaning up activity {activity_id} - restoring original name")
+        
+        # Send the update request
+        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            logger.info(f"Successfully cleaned up activity {activity_id}")
+            return True
+        else:
+            logger.error(f"Failed to clean up activity: {response.status_code} {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error cleaning up activity: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
