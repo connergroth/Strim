@@ -3,6 +3,7 @@ import json
 import time
 import requests
 import logging
+import random
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -140,6 +141,123 @@ def get_activity_details(activity_id, access_token):
     else:
         logging.error(f"Failed to retrieve activity {activity_id}: {response.status_code}")
         return None
+
+def cleanup_activity(activity_id, token, original_name, original_description=None):
+    """
+    Clean up the activity by restoring original name and description.
+    
+    Args:
+        activity_id (str): Strava activity ID
+        token (str): Strava access token
+        original_name (str): Original activity name to restore
+        original_description (str, optional): Original description to restore
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    import requests
+    import logging
+    import json
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Prepare the request URL
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Prepare the payload with clean name
+        payload = {
+            "name": original_name
+        }
+        
+        # Add description if provided
+        if original_description is not None:
+            payload["description"] = original_description
+        
+        logger.info(f"Cleaning up activity {activity_id} - restoring original name")
+        
+        # Send the update request
+        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            logger.info(f"Successfully cleaned up activity {activity_id}")
+            return True
+        else:
+            logger.error(f"Failed to clean up activity: {response.status_code} {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error cleaning up activity: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
+
+def mark_original_activity(activity_id, token, original_name, new_activity_id):
+    """
+    Mark the original activity as superseded by a trimmed version.
+    
+    Args:
+        activity_id (str): Original activity ID
+        token (str): Strava access token
+        original_name (str): Original activity name
+        new_activity_id (str): ID of the new trimmed activity
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Prepare the request URL
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Create a descriptive name for the original activity
+        new_name = f"[ARCHIVED] {original_name}"
+        
+        # Create a helpful description for the original activity
+        description = (
+            f"This activity has been trimmed using Strim. A new version is available.\n\n"
+            f"View the trimmed version here: https://www.strava.com/activities/{new_activity_id}\n\n"
+            f"You can safely delete this original activity."
+        )
+        
+        # Prepare the payload
+        payload = {
+            "name": new_name,
+            "description": description,
+            "private": True  # Mark as private to reduce clutter in feed
+        }
+        
+        logger.info(f"Marking original activity {activity_id} as archived")
+        
+        # Send the update request
+        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        
+        if response.status_code == 200:
+            logger.info(f"Successfully marked original activity {activity_id} as archived")
+            return True
+        else:
+            logger.error(f"Failed to mark original activity: {response.status_code} {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error marking original activity: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
 
 def create_activity(token, activity_data):
     """
@@ -354,3 +472,33 @@ def check_upload_status(access_token, upload_id):
     
     logging.error(f"Upload processing timed out after {max_attempts} attempts")
     return None
+
+def delete_activity(activity_id, token):
+    """
+    Delete an activity from Strava.
+    
+    Args:
+        activity_id (str): ID of the activity to delete
+        token (str): Strava access token
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    logger = logging.getLogger(__name__)
+    
+    try:
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        logger.info(f"Deleting activity {activity_id}")
+        response = requests.delete(url, headers=headers)
+        
+        if response.status_code in [200, 204]:
+            logger.info(f"Successfully deleted activity {activity_id}")
+            return True
+        else:
+            logger.error(f"Failed to delete activity: {response.status_code} {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Error deleting activity: {str(e)}")
+        return False

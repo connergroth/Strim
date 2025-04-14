@@ -80,17 +80,15 @@ body {
 .strava-login-button {
   max-width: 250px;
   margin: 10px 0 30px;
-  /* Commenting out animations to comply with guidelines */
-  /* transition: transform var(--transition-speed), opacity var(--transition-speed); */
+  transition: transform var(--transition-speed), opacity var(--transition-speed);
   cursor: pointer;
 }
 
-/* 
+
 .strava-login-button:hover {
   transform: scale(1.05);
   opacity: 0.9;
 }
-*/
 
 .auth-info {
   background-color: var(--light-gray);
@@ -101,7 +99,6 @@ body {
   color: var(--medium-gray);
 }
 
-/* Activity Section Styles */
 .container {
   max-width: 950px;
   margin: 40px auto;
@@ -594,7 +591,6 @@ input[type="checkbox"]:disabled:checked {
 .strava-logo {
   max-width: 140px;
   opacity: 0.9;
-  /* Remove transition effects to comply with "Never modify, alter or animate Strava logos" */
 }
 
 /* Empty State */

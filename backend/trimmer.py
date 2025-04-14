@@ -362,12 +362,8 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         metrics['start_date_local'] = activity_metadata.get('start_date_local')
         logger.info(f"Using original start time: {metrics['start_date_local']}")
         
-        # Preserve original description if it exists, otherwise create new one
-        original_description = activity_metadata.get('description', '')
-        if original_description:
-            metrics['description'] = f"{original_description}\n\n(Trimmed with Strim)"
-        else:
-            metrics['description'] = 'Trimmed with Strim'
+        # Use original description as is, without adding "Trimmed with Strim"
+        metrics['description'] = activity_metadata.get('description', '')
             
         # Copy additional metadata for preservation
         if 'gear_id' in activity_metadata:
