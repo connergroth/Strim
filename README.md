@@ -1,7 +1,7 @@
 
 <img src="https://github.com/user-attachments/assets/9597570b-dd86-4bfa-a957-29f0515cdb14" alt="Strim Logo" width="130"/>
 
-# Strim
+# Strim 
 Automatically trim and optimize your Strava running activities with Strim, the tool that transforms inaccurate tracking into precise performance data. Whether you're a treadmill runner or forget to stop your tracker, Strim ensures your running metrics are clean, accurate, and reflective of your true effort.
 
 ## 🏃 The Problem
@@ -23,6 +23,8 @@ Strim is a tool that allows you to:
 - Recalculate pace automatically
 - Seamless activity replacement on Strava
 
+---
+
 # Tech Stack 
 ## 🌐 Frontend 
 - **HTML, CSS, JavaScript** - UI Components
@@ -35,13 +37,15 @@ Strim is a tool that allows you to:
 - **Requests** – API communication with Strava
   
 ## 📡 API Integrations
-- **Strava API** – Fetches user activities, deletes untrimmed activity, and reuploads the trimmed one.
+- **Strava API** – Fetches user activities, edits relevant metadata, and uploads the new trimmed activity.
 
 ## 🔧 How It Works
 1. Connect your Strava account
 2. Select the activity you want to trim
 3. Adjust the distance and trim time
 4. Strim automatically updates your Strava activity
+
+---
 
 # Local Development Setup  
 Prerequisites:  
