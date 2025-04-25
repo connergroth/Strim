@@ -1,5 +1,6 @@
-
-<img src="https://github.com/user-attachments/assets/9597570b-dd86-4bfa-a957-29f0515cdb14" alt="Strim Logo" width="130"/>
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cffe0f61-9adf-417b-b6f3-2d467e88ee2c" alt="Strim" width="350"/>
+</p>
 
 # Strim 
 Automatically trim and optimize your Strava running activities with Strim, the tool that transforms inaccurate tracking into precise performance data. Whether you're a treadmill runner or forget to stop your tracker, Strim ensures your running metrics are clean, accurate, and reflective of your true effort.
