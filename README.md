@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/cffe0f61-9adf-417b-b6f3-2d467e88ee2c" alt="Strim" width="350"/>
+  <img src="https://github.com/user-attachments/assets/428a7ffe-dbb0-4be1-8fee-693948aeb7c3" alt="Strim" width="350"/>
 </p>
 
 # Strim 
