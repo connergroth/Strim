@@ -181,6 +181,14 @@ table {
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   background: white;
+  table-layout: fixed;
+}
+
+/* Column widths */
+th:nth-child(1),
+td:nth-child(1) {
+  width: 190px;
+  white-space: nowrap;
 }
 
 th {
