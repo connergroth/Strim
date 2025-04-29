@@ -36,27 +36,80 @@ def get_access_token():
     logging.info(f"New access token generated (masked: ...{access_token[-4:]})")
     return access_token
 
-def delete_activity(activity_id, access_token):
+def modify_activity_aggressively(activity_id, token):
     """
-    Delete an activity from Strava.
+    Aggressively modify an activity's metadata to avoid duplicate detection.
+    Changes activity type and name to make it clearly different.
     
     Args:
-        activity_id (str): ID of the activity to delete
-        access_token (str): Valid Strava access token
-    
+        activity_id (str): Strava activity ID
+        token (str): Strava access token
+        
     Returns:
         bool: True if successful, False otherwise
     """
-    url = f"https://www.strava.com/api/v3/activities/{activity_id}"
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    response = requests.delete(url, headers=headers)
-
-    if response.status_code == 204:
-        logging.info(f"Activity {activity_id} deleted successfully")
-        return True
-    else:
-        logging.error(f"Failed to delete activity {activity_id}: {response.status_code}")
+    import requests
+    import logging
+    import json
+    import time
+    import random
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Prepare the request URL
+        url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Get current activity details
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            logger.error(f"Failed to get activity details: {response.status_code}")
+            return False
+            
+        activity = response.json()
+        original_type = activity.get("type", "Run")
+        timestamp = int(time.time())
+        
+        # Create a completely different name using a timestamp
+        new_name = f"TEMP_{timestamp}_{random.randint(1000, 9999)}"
+        
+        # Choose a different activity type
+        activity_types = ["Workout", "Walk", "Hike", "VirtualRide", "Yoga"]
+        if original_type in activity_types:
+            activity_types.remove(original_type)
+        new_type = random.choice(activity_types)
+        
+        # Prepare the payload with significant changes
+        payload = {
+            "name": new_name,
+            "type": new_type,
+            "private": True,
+            "sport_type": new_type  # Also change sport_type if it exists
+        }
+        
+        logger.info(f"Aggressively modifying activity {activity_id}")
+        logger.info(f"New name: {new_name}, New type: {new_type}")
+        
+        # Send the update request
+        update_response = requests.put(url, headers=headers, data=json.dumps(payload))
+        
+        if update_response.status_code == 200:
+            logger.info(f"Successfully modified activity {activity_id}")
+            return True
+        else:
+            logger.error(f"Failed to modify activity: {update_response.status_code} {update_response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error modifying activity: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
     
 def get_activity_details(activity_id, access_token):
@@ -88,41 +141,122 @@ def get_activity_details(activity_id, access_token):
         logging.error(f"Failed to retrieve activity {activity_id}: {response.status_code}")
         return None
 
-
-def create_activity(access_token, metadata):
+def create_activity(token, activity_data):
     """
     Create a new activity on Strava.
     
     Args:
-        access_token (str): Valid Strava access token
-        metadata (dict): Activity metadata including name, type, distance, etc.
-    
+        token (str): Strava access token
+        activity_data (dict): Activity details
+        
     Returns:
         str: New activity ID if successful, None otherwise
     """
-    url = "https://www.strava.com/api/v3/activities"
-    headers = {"Authorization": f"Bearer {access_token}"}
+    import requests
+    import logging
+    import json
+    from datetime import datetime
+    import time
     
-    activity_data = {
-        "name": metadata["name"],
-        "type": metadata["type"],
-        "distance": metadata["distance"],
-        "elapsed_time": metadata["elapsed_time"],
-        "description": metadata.get("description", ""),
-        "trainer": metadata.get("trainer", 0),
-        "commute": metadata.get("commute", 0)
-    }
-
-    response = requests.post(url, headers=headers, data=activity_data)
-
-    if response.status_code == 201:
-        new_activity_id = response.json()['id']
-        logging.info(f"New activity created successfully: {new_activity_id}")
-        return new_activity_id
-    else:
-        logging.error(f"Failed to create activity: {response.status_code} {response.text}")
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Prepare the request URL
+        url = "https://www.strava.com/api/v3/activities"
+        
+        # Set up headers
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Prepare the payload with required fields
+        payload = {
+            "name": activity_data.get("name", "Activity"),
+            "type": activity_data.get("type", "Run"),
+            "start_date_local": activity_data.get("start_date_local"),
+            "elapsed_time": activity_data.get("elapsed_time", 0),
+            "description": activity_data.get("description", ""),
+            "distance": activity_data.get("distance", 0),
+            # Convert boolean to integer for Strava API
+            "trainer": 1 if activity_data.get("trainer", False) else 0,
+            "commute": 1 if activity_data.get("commute", False) else 0
+        }
+        
+        # Add optional fields if present
+        if "private" in activity_data:
+            payload["private"] = 1 if activity_data.get("private", False) else 0
+            
+        if "gear_id" in activity_data:
+            payload["gear_id"] = activity_data.get("gear_id")
+            
+        # Add optional metrics if available
+        for field in ["average_heartrate", "average_speed", "average_cadence"]:
+            if field in activity_data:
+                payload[field] = activity_data.get(field)
+                
+        # Handle start date format issues
+        # If start_date_local is missing or malformed, use current time
+        if not payload.get("start_date_local") or "Z" not in payload["start_date_local"]:
+            # Create current time in ISO format
+            current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+            payload["start_date_local"] = current_time
+            logger.warning(f"Using current time ({current_time}) for activity start_date_local")
+        
+        # Add jitter to start time to avoid conflict
+        # This helps prevent 409 errors when creating multiple activities
+        try:
+            # Parse the start date
+            start_date = datetime.strptime(payload["start_date_local"], "%Y-%m-%dT%H:%M:%SZ")
+            # Add a few seconds of jitter
+            jitter_seconds = int(time.time() % 60)  # Use seconds from current time
+            new_start_date = start_date.replace(second=jitter_seconds)
+            # Format back to string
+            payload["start_date_local"] = new_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+            logger.info(f"Added jitter to start time: {payload['start_date_local']}")
+        except Exception as e:
+            logger.warning(f"Could not add jitter to start time: {str(e)}")
+        
+        # Log sanitized payload (for debugging)
+        logger.info(f"Creating activity with data: {payload}")
+        
+        # Send the create request
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        
+        # Check if the request was successful
+        if response.status_code == 201 or response.status_code == 200:
+            # Extract the new activity ID from the response
+            activity_data = response.json()
+            new_activity_id = activity_data.get("id")
+            
+            if new_activity_id:
+                logger.info(f"Successfully created activity {new_activity_id}")
+                return str(new_activity_id)
+            else:
+                logger.error("Activity created but no ID returned")
+                return None
+        else:
+            # Log the error
+            logger.error(f"Failed to create activity: {response.status_code} {response.text}")
+            
+            # Provide more specific error messages based on status code
+            if response.status_code == 400:
+                logger.error("Bad request - check activity data format")
+            elif response.status_code == 401:
+                logger.error("Unauthorized - token may be invalid or expired")
+            elif response.status_code == 403:
+                logger.error("Forbidden - insufficient permissions")
+            elif response.status_code == 409:
+                logger.error("Conflict - activity may already exist with similar attributes")
+                
+            # Return failure
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error creating activity: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
-
 
 def upload_tcx(access_token, file_path, activity_name="Trimmed Activity"):
     """

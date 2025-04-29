@@ -368,6 +368,9 @@ function selectActivity(id, distance) {
             row.classList.remove('selected');
         }
     });
+    
+    // Check if activity has photos and show warning if needed
+    checkForPhotos(id);
 }
 
 /**
@@ -402,6 +405,46 @@ function toggleDistanceInput() {
             container.style.display = "none";
         }, 300);
     }
+}
+
+function checkForPhotos(activityId) {
+    // Get token from localStorage
+    const token = getStoredToken();
+    
+    if (!token || !activityId) {
+        return;
+    }
+    
+    // Create URL with token parameter
+    const url = `${BACKEND_URL}/activities/${activityId}/details?token=${encodeURIComponent(token)}`;
+    
+    // Make request to get activity details
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Check if the activity has photos
+            if (data.activity && data.activity.photos && data.activity.photos.count > 0) {
+                // Show photo warning message
+                const warningDiv = document.getElementById("photoWarning");
+                if (warningDiv) {
+                    warningDiv.classList.remove("hidden");
+                }
+            } else {
+                // Hide photo warning if no photos
+                const warningDiv = document.getElementById("photoWarning");
+                if (warningDiv) {
+                    warningDiv.classList.add("hidden");
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Error checking for photos:", error);
+        });
 }
 
 /**
