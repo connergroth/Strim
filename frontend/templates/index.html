@@ -35,6 +35,16 @@
                         });
                         // Add selected class to clicked row
                         row.classList.add('selected');
+                        
+                        // Explicitly ensure the change event is triggered
+                        if (!e.target.dispatchEvent) {
+                            // Manually trigger the selection
+                            const activityId = e.target.value;
+                            const activityDistance = e.target.getAttribute('data-distance');
+                            if (typeof selectActivity === 'function') {
+                                selectActivity(activityId, activityDistance);
+                            }
+                        }
                     }
                 }
             });
@@ -69,6 +79,10 @@
 
     <!-- Activity Selection Section (Hidden Until Logged In) -->
     <div class="container hidden" id="activitySection">
+        <div class="logo-container" style="text-align: center; margin-bottom: 1.5rem;">
+            <img src="/static/assets/strim-alt-logo.png" alt="Strim Logo" class="logo" style="max-width: 150px;">
+        </div>
+        
         <div class="header-container">
             <h2>Your Strava Activities</h2>
             <button id="logoutButton">

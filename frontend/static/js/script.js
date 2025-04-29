@@ -340,10 +340,23 @@ function displayActivities(activities) {
           const radio = this.querySelector('input[type="radio"]');
           if (radio) {
             radio.checked = true;
-            selectActivity(activity.id, activity.distance_miles);
+            // Manually trigger the change event on the radio button
+            const changeEvent = new Event("change", { bubbles: true });
+            radio.dispatchEvent(changeEvent);
           }
         }
       });
+
+      // Add direct event handler to the radio button itself
+      const radio = row.querySelector('input[type="radio"]');
+      if (radio) {
+        radio.addEventListener("change", function () {
+          if (this.checked) {
+            // Select the activity and load the visualization
+            selectActivity(activity.id, activity.distance_miles);
+          }
+        });
+      }
     });
 
     // Add "Show More/Less" row if there are more than 5 activities
@@ -1501,7 +1514,8 @@ const originalFetchActivities = fetchActivities;
 fetchActivities = async function () {
   await originalFetchActivities();
 
-  // Add event handlers to the radio buttons
+  // We no longer need to add event handlers here because we're adding them directly
+  // in the renderActivities function, but we'll leave this as a backup
   const radioButtons = document.querySelectorAll(
     'input[name="selectedActivity"]'
   );
