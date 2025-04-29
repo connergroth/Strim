@@ -24,6 +24,11 @@ Strim is a tool that allows you to:
 - Recalculate pace automatically
 - Seamless activity replacement on Strava
 
+## 📊 Data Visualization
+
+- **Interactive Trimming**: Visualize exactly where your activity will be trimmed with draggable markers
+- **Automatic Graph Reloading**: Activity visualization graph updates instantly when selecting a new activity
+
 ---
 
 # Tech Stack 
