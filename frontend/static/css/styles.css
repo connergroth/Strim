@@ -195,13 +195,6 @@ th {
   text-transform: uppercase;
 }
 
-/* Date column specific width */
-th:first-child,
-td:first-child {
-  min-width: 180px;
-  white-space: nowrap;
-}
-
 th:not(:last-child)::after {
   content: '';
   position: absolute;
