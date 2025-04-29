@@ -1,24 +1,60 @@
-.strava-branding {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid var(--border-color);
-}/* Strim - Trim Your Strava Runs
-   Complete styles.css file with enhanced UI */
+/* Strim - Modern UI with Dark Mode */
 
 :root {
-  --strava-orange: #FC4C02;
-  --strava-orange-hover: #FF6A33;
-  --dark-gray: #444;
-  --medium-gray: #6D6D6D;
-  --light-gray: #f9f9f9;
-  --border-color: #ddd;
-  --success-color: #28a745;
-  --error-color: #dc3545;
-  --info-color: #17a2b8;
+  /* Light mode variables */
+  --bg-primary: #f8f9fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f5;
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --border-color: #dee2e6;
+  --accent-color: #FC4C02; /* Strava orange */
+  --accent-hover: #FF6A33;
+  --success-color: #20c997;
+  --error-color: #fa5252;
+  --info-color: #339af0;
   --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --transition-speed: 0.3s;
+  --transition: all 0.3s ease;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Components */
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  --input-focus: #339af0;
+  --button-hover: rgba(0, 0, 0, 0.05);
+  --chart-grid: rgba(0, 0, 0, 0.1);
+  --hover-color: rgba(0, 0, 0, 0.03);
 }
 
+[data-theme="dark"] {
+  /* Dark mode variables */
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #252525;
+  --text-primary: #e9ecef;
+  --text-secondary: #ced4da;
+  --text-muted: #adb5bd;
+  --border-color: #343a40;
+  --accent-color: #FF6A33; /* Slightly brighter orange for dark mode */
+  --accent-hover: #FF8A53;
+  --success-color: #12b886;
+  --error-color: #e03131;
+  --info-color: #228be6;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  
+  /* Components */
+  --input-bg: #2a2a2a;
+  --input-border: #495057;
+  --input-focus: #339af0;
+  --button-hover: rgba(255, 255, 255, 0.05);
+  --chart-grid: rgba(255, 255, 255, 0.1);
+  --hover-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Base styles */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -27,263 +63,220 @@
 }
 
 body {
-  background-color: #f5f5f5;
-  color: var(--dark-gray);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   line-height: 1.6;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding: 0;
-  margin: 0;
+  transition: var(--transition);
 }
 
-/* Authentication Section Styles */
-#authSection {
+/* Theme toggle */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  padding: 20px;
-  background: linear-gradient(to bottom, #ffffff, #f8f8f8);
-  text-align: center;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: var(--box-shadow);
+  transition: var(--transition);
+}
+
+.theme-toggle:hover {
+  transform: scale(1.05);
+}
+
+.theme-toggle i {
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+/* Authentication Section */
+#authSection {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  padding: 2rem;
 }
 
 .auth-container {
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
   box-shadow: var(--box-shadow);
-  padding: 40px;
-  max-width: 500px;
+  padding: 3rem;
   width: 100%;
-  margin: 0 auto;
-  transition: transform var(--transition-speed);
+  max-width: 500px;
+  text-align: center;
+  transition: var(--transition);
 }
 
 .logo {
   max-width: 180px;
-  margin-bottom: 30px;
-  transition: transform 0.5s ease;
+  height: auto;
+  margin-bottom: 1.5rem;
+  border-radius: var(--radius-md);
+  transition: var(--transition);
 }
 
 .logo:hover {
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
 .auth-tagline {
-  font-size: 18px;
-  color: var(--medium-gray);
-  margin-bottom: 30px;
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
   font-weight: 500;
 }
 
 .strava-login-button {
-  max-width: 250px;
-  margin: 10px 0 30px;
-  transition: transform var(--transition-speed), opacity var(--transition-speed);
+  max-width: 240px;
+  height: auto;
   cursor: pointer;
+  margin-bottom: 2rem;
+  transition: var(--transition);
+  border-radius: var(--radius-sm);
 }
 
-
 .strava-login-button:hover {
-  transform: scale(1.05);
-  opacity: 0.9;
+  transform: scale(1.02);
 }
 
 .auth-info {
-  background-color: var(--light-gray);
-  border-radius: 8px;
-  padding: 15px;
-  margin-top: 20px;
-  font-size: 14px;
-  color: var(--medium-gray);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
+/* Main container */
 .container {
-  max-width: 950px;
-  margin: 40px auto;
-  padding: 30px;
-  background-color: white;
-  border-radius: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
   box-shadow: var(--box-shadow);
-  transition: transform 0.2s;
+  width: 90%;
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 2rem;
+  transition: var(--transition);
 }
 
+/* Header */
 .header-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  padding-bottom: 15px;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .header-container h2 {
-  color: var(--strava-orange);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
   margin: 0;
-  font-size: 26px;
-  font-weight: 700;
 }
 
 #logoutButton {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background-color: white;
-  color: var(--medium-gray);
-  border: 1px solid var(--border-color);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  cursor: pointer;
+  gap: 0.5rem;
+  transition: var(--transition);
 }
 
 #logoutButton:hover {
-  background-color: #f1f1f1;
-  border-color: #ccc;
-  color: #333;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  background-color: var(--bg-tertiary);
+  color: var(--accent-color);
 }
 
-#logoutButton i {
-  font-size: 14px;
-}
-
-/* Strava view link styling per brand guidelines */
-.activity-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.strava-view-link {
-  color: #FC5200; /* Strava orange color as specified in guidelines */
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 0.85em;
-  display: block;
-  transition: all 0.2s ease;
-}
-
-.strava-view-link:hover {
-  text-decoration: underline;
-}
-
-/* Table Styles */
+/* Table styles */
 table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-bottom: 25px;
-  border-radius: 12px;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-  background: white;
-  table-layout: fixed;
-}
-
-/* Column widths */
-th:nth-child(1),
-td:nth-child(1) {
-  width: 190px;
-  white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--border-color);
 }
 
 th {
-  background-color: var(--strava-orange);
-  color: white;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  padding: 18px 20px;
   text-align: left;
-  position: relative;
-  font-size: 0.95em;
+  padding: 1rem;
+  background-color: var(--bg-tertiary);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
   text-transform: uppercase;
-}
-
-th:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 20%;
-  height: 60%;
-  width: 1px;
-  background-color: rgba(255,255,255,0.15);
+  letter-spacing: 0.03em;
+  position: relative;
 }
 
 td {
-  padding: 16px 20px;
-  text-align: left;
-  border-bottom: 1px solid rgba(0,0,0,0.03);
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
   vertical-align: middle;
-  font-size: 0.95em;
-  color: var(--dark-gray);
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-tr:nth-child(odd) {
-  background-color: rgba(249, 249, 249, 0.5);
-}
-
-tr:nth-child(even) {
-  background-color: white;
+  color: var(--text-primary);
+  transition: var(--transition);
 }
 
 tr {
-  transition: all 0.2s ease;
+  transition: var(--transition);
 }
 
 tr:hover {
-  background-color: rgba(252, 76, 2, 0.03);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  background-color: var(--hover-color);
 }
 
 tr.selected {
-  background-color: rgba(252, 76, 2, 0.06);
-  box-shadow: 0 2px 8px rgba(252, 76, 2, 0.08);
+  background-color: rgba(var(--accent-color), 0.1);
 }
 
 td a {
-  color: var(--strava-orange);
+  color: var(--text-primary);
   text-decoration: none;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  padding: 4px 8px;
-  border-radius: 4px;
+  transition: var(--transition);
 }
 
 td a:hover {
-  color: var(--strava-orange-hover);
-  background-color: rgba(252, 76, 2, 0.05);
-  text-decoration: none;
+  color: var(--accent-color);
 }
 
-/* Radio Button Styling */
+/* Custom radio buttons */
 input[type="radio"] {
-  -webkit-appearance: none;
-  -moz-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e0e0e0;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  outline: none;
-  transition: all 0.2s ease;
-  position: relative;
+  border: 2px solid var(--border-color);
+  background-color: var(--input-bg);
   cursor: pointer;
-  vertical-align: middle;
-  background-color: white;
+  position: relative;
+  transition: var(--transition);
 }
 
 input[type="radio"]:checked {
-  border-color: var(--strava-orange);
-  background-color: white;
+  border-color: var(--accent-color);
+  background-color: var(--input-bg);
 }
 
 input[type="radio"]:checked::before {
@@ -291,384 +284,294 @@ input[type="radio"]:checked::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background-color: var(--strava-orange);
+  background-color: var(--accent-color);
+  transform: translate(-50%, -50%);
 }
 
 input[type="radio"]:hover {
-  border-color: var(--strava-orange-hover);
-  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
+  border-color: var(--accent-color);
 }
 
-/* Activity Options */
+/* Activity options */
 .activity-options {
-  background-color: #fafafa;
-  padding: 25px;
-  border-radius: 12px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-  border: 1px solid rgba(0,0,0,0.03);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .activity-option {
-  margin-bottom: 18px;
   display: flex;
   align-items: center;
-  transition: transform 0.2s ease;
-}
-
-.activity-option:last-child {
-  margin-bottom: 0;
-}
-
-.activity-option:hover {
-  transform: translateX(2px);
 }
 
 .activity-option label {
-  cursor: pointer;
   display: flex;
   align-items: center;
-  font-weight: 500;
-  color: #444;
-  font-size: 0.95em;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
-/* Checkbox Styling */
+/* Custom checkboxes */
 input[type="checkbox"] {
-  -webkit-appearance: none;
-  -moz-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e0e0e0;
-  border-radius: 4px;
-  margin-right: 12px;
-  outline: none;
-  transition: all 0.2s ease;
-  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-color);
+  background-color: var(--input-bg);
   cursor: pointer;
-  background-color: white;
+  position: relative;
+  transition: var(--transition);
 }
 
 input[type="checkbox"]:checked {
-  background-color: var(--strava-orange);
-  border-color: var(--strava-orange);
+  border-color: var(--accent-color);
+  background-color: var(--accent-color);
 }
 
 input[type="checkbox"]:checked::before {
   content: '✓';
   position: absolute;
   color: white;
-  font-size: 12px;
-  font-weight: bold;
-  top: 0;
-  left: 4px;
+  font-size: 14px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
-input[type="checkbox"]:hover {
-  border-color: var(--strava-orange-hover);
-  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--accent-color);
 }
 
 input[type="checkbox"]:disabled {
-  background-color: #f5f5f5;
-  border-color: #e0e0e0;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-input[type="checkbox"]:disabled:checked {
-  background-color: #ccc;
-  border-color: #ccc;
-}
-
+/* Distance input */
 #distanceInputContainer {
-  background-color: white;
-  padding: 20px;
-  margin-top: 18px;
-  border-radius: 10px;
-  border-left: 3px solid var(--strava-orange);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-  transition: all 0.3s ease;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
 }
 
 #distanceInputContainer:focus-within {
-  box-shadow: 0 3px 12px rgba(252, 76, 2, 0.1);
-  transform: translateY(-2px);
+  border-color: var(--accent-color);
 }
 
 #distanceInputContainer label {
   display: block;
-  margin-bottom: 12px;
-  font-weight: 500;
-  color: #444;
-  font-size: 0.95em;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 #newDistance {
   width: 100%;
-  max-width: 200px;
-  padding: 12px 15px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 15px;
-  transition: all 0.3s ease;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
-  background-color: #fafafa;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--input-border);
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: var(--transition);
 }
 
 #newDistance:focus {
-  outline: none;
-  border-color: var(--strava-orange);
-  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
-  background-color: white;
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.2);
 }
 
-/* Primary Button Styles */
+/* Trim button */
 #trimActivityButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background-color: var(--strava-orange);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 14px 28px;
-  font-size: 16px;
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
   font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--accent-color);
+  color: white;
   cursor: pointer;
-  transition: all 0.3s ease;
-  margin: 0 auto;
-  min-width: 200px;
-  box-shadow: 0 4px 12px rgba(252, 76, 2, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  transition: var(--transition);
 }
 
 #trimActivityButton:hover {
-  background-color: var(--strava-orange-hover);
+  background-color: var(--accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(252, 76, 2, 0.25);
 }
 
 #trimActivityButton:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(252, 76, 2, 0.2);
 }
 
 #trimActivityButton:disabled {
-  background-color: #ccc;
+  background-color: var(--text-muted);
   cursor: not-allowed;
   transform: none;
-  box-shadow: none;
 }
 
 #trimActivityButton i {
-  font-size: 18px;
+  font-size: 1.1rem;
 }
 
-/* Show More/Less Button */
-.show-more-row {
-  background-color: transparent !important;
-}
-
-.show-more-row:hover {
-  background-color: transparent !important;
-}
-
-.toggle-activities-btn {
-  width: 100%;
-  padding: 12px 16px;
-  background-color: white;
-  border: none;
-  border-radius: 8px;
-  color: var(--medium-gray);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-  margin: 5px 0;
-}
-
-.toggle-activities-btn:hover {
-  background-color: #f7f7f7;
-  color: var(--strava-orange);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-}
-
-.toggle-activities-btn i {
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
-.toggle-activities-btn:hover i {
-  transform: translateY(2px);
-}
-
-/* Steps Section */
+/* Steps section */
 .steps {
-  max-width: 950px;
-  margin: 0 auto 40px;
-  padding: 0;
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
 }
 
 .step {
-  padding: 16px 20px;
-  margin-bottom: 12px;
-  background-color: white;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
+  position: relative;
+  margin-bottom: 1rem;
+  padding: 1rem 1rem 1rem 3rem;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
   box-shadow: var(--box-shadow);
-  transition: transform 0.3s;
+  transition: var(--transition);
 }
 
 .step:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .step-number {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  background-color: var(--strava-orange);
-  color: white;
   border-radius: 50%;
-  margin-right: 15px;
-  font-weight: bold;
-  flex-shrink: 0;
+  background-color: var(--accent-color);
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
-/* Warning styles */
+/* Warning message */
 .warning-message {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
+  background-color: rgba(var(--error-color), 0.1);
+  border-left: 4px solid var(--error-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin: 1rem auto;
+  max-width: 1000px;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  font-size: 14px;
-  line-height: 1.5;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-primary);
 }
 
 .warning-message i {
-  font-size: 16px;
-  color: #f0ad4e;
+  color: var(--error-color);
+  font-size: 1.25rem;
 }
 
 .warning-message.hidden {
   display: none;
 }
 
-/* Footer Styles */
+/* Footer */
 .footer {
-    margin-top: auto;
-    padding: 20px 0 30px;
-    text-align: center;
-    background-color: white;
-    border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding: 1.5rem;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
 }
 
 .creator-info {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    color: var(--medium-gray);
-    font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .creator-info a:not(.github-link) {
-    color: var(--dark-gray);
-    text-decoration: none;
-    transition: color 0.3s ease;
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: var(--transition);
 }
 
 .creator-info a:not(.github-link):hover {
-    color: var(--strava-orange);
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
 .github-link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--strava-orange);
-    text-decoration: none;
-    transition: all 0.3s ease;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transition: var(--transition);
+  text-decoration: none;
 }
 
 .github-link i {
-    font-size: 18px;
+  font-size: 1.1rem;
 }
 
 .github-link:hover {
-    color: white;
-    background-color: var(--strava-orange);
-    transform: translateY(-2px);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  background-color: var(--accent-color);
+  color: white;
+  transform: rotate(360deg);
 }
 
 .strava-logo {
-  max-width: 140px;
-  opacity: 0.9;
+  height: 24px;
+  opacity: 0.8;
+  transition: var(--transition);
 }
 
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 30px 20px;
-  color: #666;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  margin: 20px 0;
+.strava-logo:hover {
+  opacity: 1;
 }
 
-.empty-state i {
-  font-size: 32px;
-  color: #ddd;
-  margin-bottom: 15px;
-  display: block;
-}
-
-.empty-state p {
-  font-size: 16px;
-  margin-bottom: 15px;
-}
-
-/* Message Styling */
+/* Messages */
 #message {
   position: fixed;
-  top: 20px;
+  top: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 22px;
-  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: var(--box-shadow);
+  color: white;
+  font-size: 0.95rem;
+  max-width: calc(100% - 2rem);
   z-index: 1000;
-  font-weight: 500;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-  max-width: 90%;
-  text-align: center;
   opacity: 0;
-  animation: fadeIn 0.3s forwards;
+  animation: fadeIn 0.3s ease forwards;
 }
 
 @keyframes fadeIn {
@@ -676,142 +579,100 @@ input[type="checkbox"]:disabled:checked {
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; }
   to { opacity: 0; }
 }
 
 .fadeOut {
-  animation: fadeOut 0.3s forwards;
+  animation: fadeOut 0.3s ease forwards;
 }
 
 #message.success {
   background-color: var(--success-color);
-  color: white;
 }
 
 #message.error {
   background-color: var(--error-color);
-  color: white;
 }
 
 #message.info {
   background-color: var(--info-color);
-  color: white;
 }
 
 #message a {
   color: white;
   text-decoration: underline;
-  margin-left: 8px;
-  font-weight: 600;
+  margin-left: 0.5rem;
 }
 
 #message a:hover {
   text-decoration: none;
 }
 
-/* Utility Classes */
 .hidden {
   display: none !important;
 }
 
-#message:empty {
-  display: none !important;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .container, .steps {
-    padding: 20px;
-    margin: 20px 15px;
-  }
-  
-  .auth-container {
-    padding: 25px;
-  }
-  
-  .header-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  
-  th, td {
-    padding: 10px 12px;
-    font-size: 14px;
-  }
-  
-  #logoutButton {
-    align-self: flex-end;
-  }
-  
-  .step {
-    padding: 12px 15px;
-  }
-}
-
-/* Activity Visualization Styles */
+/* Visualization styles */
 .visualization-container {
-  background-color: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin: 1.5rem 0;
+  padding: 1.5rem;
   box-shadow: var(--box-shadow);
 }
 
 .visualization-container h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  color: var(--dark-gray);
-  font-size: 18px;
+  font-size: 1.25rem;
   font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: var(--text-primary);
 }
 
 .graph-container {
-  background-color: var(--light-gray);
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .graph-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 1rem;
 }
 
 .graph-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--dark-gray);
+  font-size: 1.1rem;
   font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .graph-controls {
   display: flex;
-  align-items: center;
+  gap: 0.5rem;
 }
 
 .toggle-button {
-  background-color: white;
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 50px;
-  padding: 2px;
+  border-radius: 20px;
+  padding: 0.3rem 0.5rem;
   display: flex;
-  font-size: 14px;
+  align-items: center;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 0.85rem;
 }
 
 .toggle-option {
-  padding: 5px 12px;
-  border-radius: 50px;
-  transition: all 0.2s ease;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  transition: var(--transition);
 }
 
 .toggle-option.active {
-  background-color: var(--strava-orange);
+  background-color: var(--accent-color);
   color: white;
   font-weight: 500;
 }
@@ -819,151 +680,144 @@ input[type="checkbox"]:disabled:checked {
 .canvas-container {
   position: relative;
   height: 250px;
-  width: 100%;
-  margin-bottom: 10px;
+  margin-bottom: 1rem;
 }
 
 .trim-markers {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   pointer-events: none;
 }
 
 .trim-marker {
   position: absolute;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  height: 100%;
-  background-color: #333;
+  background-color: var(--accent-color);
   cursor: ew-resize;
-  pointer-events: all;
-  z-index: 10;
+  pointer-events: auto;
 }
 
 .trim-marker::before {
   content: '';
   position: absolute;
-  top: -8px;
-  left: -6px;
-  width: 14px;
-  height: 14px;
-  background-color: #333;
-  border: 2px solid white;
+  top: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background-color: var(--accent-color);
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 2px var(--bg-secondary);
 }
 
 .start-marker {
-  left: 10%;
-  background-color: #007bff;
+  left: 20%;
 }
 
 .start-marker::before {
-  background-color: #007bff;
+  left: 50%;
 }
 
 .end-marker {
-  left: 90%;
-  background-color: #dc3545;
+  right: 20%;
 }
 
 .end-marker::before {
-  background-color: #dc3545;
+  left: 50%;
 }
 
 .graph-legend {
   display: flex;
+  gap: 1.5rem;
   flex-wrap: wrap;
-  gap: 15px;
-  font-size: 13px;
-  color: var(--medium-gray);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0.5rem;
 }
 
 .legend-color {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
 }
 
 .legend-marker {
   position: relative;
-  display: inline-block;
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
 }
 
 .legend-marker::before {
   content: '';
   position: absolute;
-  left: 6px;
-  top: 0;
-  height: 14px;
+  top: 50%;
+  left: 50%;
   width: 2px;
-  background-color: #333;
+  height: 16px;
+  background-color: var(--accent-color);
+  transform: translate(-50%, -50%);
 }
 
 .legend-marker::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  background-color: #555;
-  border: 1px solid white;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  background-color: var(--accent-color);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--bg-secondary);
 }
 
 .trim-markers-legend .legend-marker::after {
-  background-color: #dc3545;
+  transform: translate(-50%, -50%);
 }
 
-/* Comparison Table Styles */
 .comparison-container {
-  background-color: white;
-  border-radius: 8px;
-  padding: 15px;
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
 }
 
 .comparison-container h4 {
-  margin: 0 0 15px;
-  font-size: 16px;
-  color: var(--dark-gray);
+  font-size: 1.1rem;
   font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
 }
 
 .comparison-table {
   width: 100%;
-  font-size: 14px;
 }
 
 .comparison-header, .comparison-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
-  padding: 10px 0;
-  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
 }
 
 .comparison-header {
   font-weight: 600;
-  color: var(--medium-gray);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .comparison-row {
   border-bottom: 1px solid var(--border-color);
-  color: var(--dark-gray);
 }
 
 .comparison-row:last-child {
@@ -971,35 +825,35 @@ input[type="checkbox"]:disabled:checked {
 }
 
 .metric-label {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .original-value {
-  color: var(--medium-gray);
+  color: var(--text-secondary);
 }
 
 .edited-value {
-  color: var(--strava-orange);
+  color: var(--accent-color);
   font-weight: 500;
 }
 
 .difference {
-  font-size: 13px;
+  font-weight: 500;
 }
 
 .difference.positive {
-  color: #28a745;
+  color: var(--success-color);
 }
 
 .difference.negative {
-  color: #dc3545;
+  color: var(--error-color);
 }
 
-/* Responsive adjustments for visualizations */
+/* Responsive design */
 @media (max-width: 768px) {
   .comparison-header, .comparison-row {
     grid-template-columns: 1fr 1fr 1fr 1fr;
-    font-size: 13px;
+    font-size: 0.85rem;
   }
   
   .canvas-container {
@@ -1007,8 +861,8 @@ input[type="checkbox"]:disabled:checked {
   }
   
   .graph-legend {
-    font-size: 12px;
-    gap: 10px;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 
@@ -1016,16 +870,44 @@ input[type="checkbox"]:disabled:checked {
   .graph-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 0.75rem;
   }
   
   .comparison-header, .comparison-row {
-    grid-template-columns: 1.5fr 1fr 1fr 1fr;
-    font-size: 12px;
-    gap: 5px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    row-gap: 0.75rem;
   }
   
   .canvas-container {
     height: 180px;
+  }
+  
+  .container, .steps {
+    width: 95%;
+    padding: 1.25rem;
+  }
+  
+  .auth-container {
+    padding: 2rem 1.25rem;
+  }
+  
+  .header-container {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  th, td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  #logoutButton {
+    width: 100%;
+  }
+  
+  .step {
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
   }
 }

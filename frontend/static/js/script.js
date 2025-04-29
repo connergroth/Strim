@@ -1493,3 +1493,63 @@ fetchActivities = async function () {
     });
   });
 };
+
+// Theme management functions
+function setTheme(themeName) {
+  localStorage.setItem("theme", themeName);
+  document.documentElement.setAttribute("data-theme", themeName);
+}
+
+function toggleTheme() {
+  const currentTheme = localStorage.getItem("theme") || "light";
+  const newTheme = currentTheme === "light" ? "dark" : "light";
+  setTheme(newTheme);
+  updateThemeToggleIcon();
+}
+
+function updateThemeToggleIcon() {
+  const themeToggle = document.querySelector(".theme-toggle i");
+  if (!themeToggle) return;
+
+  const currentTheme = localStorage.getItem("theme") || "light";
+  themeToggle.className =
+    currentTheme === "light" ? "fas fa-moon" : "fas fa-sun";
+}
+
+function initTheme() {
+  // Check for saved theme preference or use system preference
+  const savedTheme = localStorage.getItem("theme");
+
+  if (savedTheme) {
+    setTheme(savedTheme);
+  } else {
+    // Check if system prefers dark mode
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
+      setTheme("dark");
+    } else {
+      setTheme("light");
+    }
+  }
+
+  // Add theme toggle button if it doesn't exist
+  if (!document.querySelector(".theme-toggle")) {
+    const themeToggle = document.createElement("button");
+    themeToggle.className = "theme-toggle";
+    themeToggle.innerHTML = '<i class="fas fa-moon"></i>'; // Default icon
+    themeToggle.addEventListener("click", toggleTheme);
+    document.body.appendChild(themeToggle);
+
+    // Update the icon based on current theme
+    updateThemeToggleIcon();
+  }
+}
+
+// Initialize theme on document load
+document.addEventListener("DOMContentLoaded", function () {
+  initTheme();
+
+  // ... existing code ...
+});
