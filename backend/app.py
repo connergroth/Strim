@@ -325,51 +325,65 @@ def get_activities():
 @app.route("/download-fit", methods=["GET"])
 def download_fit():
     """Download activity data, modify old activity, and create new one with original time."""
-    try:
-        # Import necessary modules
-        import json
-        import time
-        import random
-        import datetime
-        import traceback
-        import requests
-        
-        # Get token using helper function
-        token = get_token_from_request()
-        
-        # If no token, return unauthorized
-        if not token:
-            app.logger.error("❌ No valid token found for download-fit")
-            return jsonify({"error": "Unauthorized. No valid token."}), 401
-
-        activity_id = request.args.get("activity_id")
-        edit_distance = request.args.get("edit_distance") == "true"
-        new_distance = request.args.get("new_distance")
-
-        if not activity_id:
-            return jsonify({"error": "Missing activity ID"}), 400
-
-        if edit_distance and (not new_distance or float(new_distance) <= 0):
-            return jsonify({"error": "Invalid new distance provided"}), 400
-            
-        # Convert new_distance from miles to meters if editing distance
-        corrected_distance = None
-        if edit_distance and new_distance:
-            # Convert miles to meters (1 mile = 1609.34 meters)
+    
+    activity_id = request.args.get("activity_id")
+    token = request.args.get("token")
+    edit_distance = request.args.get("edit_distance") == "true"
+    new_distance = request.args.get("new_distance")
+    
+    # Get manual trim points if provided
+    trim_start_time = request.args.get("trim_start_time")
+    trim_end_time = request.args.get("trim_end_time")
+    
+    # Convert to float if provided
+    if trim_start_time:
+        try:
+            trim_start_time = float(trim_start_time)
+        except ValueError:
+            trim_start_time = None
+    
+    if trim_end_time:
+        try:
+            trim_end_time = float(trim_end_time)
+        except ValueError:
+            trim_end_time = None
+    
+    # Log parameters
+    app.logger.info(f"Processing activity {activity_id}, edit_distance={edit_distance}, new_distance={new_distance}")
+    if trim_start_time is not None and trim_end_time is not None:
+        app.logger.info(f"Manual trim points provided: {trim_start_time}s to {trim_end_time}s")
+    
+    if not activity_id or not token:
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    # Convert distance to meters if provided
+    corrected_distance = None
+    if edit_distance and new_distance:
+        try:
+            # Convert miles to meters (Strava API uses meters)
             corrected_distance = float(new_distance) * 1609.34
-            app.logger.info(f"Converting {new_distance} miles to {corrected_distance} meters")
-
-        app.logger.info(f"Processing activity {activity_id} (edit_distance={edit_distance}, new_distance={new_distance})")
-
+            app.logger.info(f"Converting {new_distance} miles to {corrected_distance:.2f} meters")
+        except ValueError:
+            return jsonify({"error": "Invalid distance value"}), 400
+    
+    try:
+        # Set up headers for Strava API requests
+        headers = {"Authorization": f"Bearer {token}"}
+        
         # Step 1: Get activity details
-        activity_metadata = api_utils.get_activity_details(activity_id, token)
-        if not activity_metadata:
-            return jsonify({"error": "Failed to retrieve activity details"}), 500
+        activity_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        response = requests.get(activity_url, headers=headers)
+        
+        if response.status_code != 200:
+            app.logger.error(f"Failed to retrieve activity: {response.status_code} {response.text}")
+            return jsonify({"error": "Failed to retrieve activity from Strava"}), 500
             
-        # Save the original activity attributes we want to preserve
+        # Get the activity metadata
+        activity_metadata = response.json()
         original_name = activity_metadata.get("name", "Activity")
-        original_type = activity_metadata.get("type", "Run")
+        original_description = activity_metadata.get("description", "")
         original_date = activity_metadata.get("start_date_local")
+        original_type = activity_metadata.get("type", "Run")
         original_gear_id = activity_metadata.get("gear_id")
         
         app.logger.info(f"Retrieved activity metadata: {original_name}, " 
@@ -395,16 +409,26 @@ def download_fit():
             return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
 
         # Get stream data
-        stream_data = response.text
+        stream_data = response.json()
         
         # Step 3: Process streams to determine trim point and new metrics
         try:
+            # Include manual trim points if provided
+            trim_options = {}
+            if trim_start_time is not None and trim_end_time is not None:
+                trim_options['manual_trim_points'] = {
+                    'start_time': trim_start_time,
+                    'end_time': trim_end_time
+                }
+                app.logger.info(f"Using manual trim points: {trim_start_time}s to {trim_end_time}s")
+            
             # Process the streams data
             trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
                 activity_id, 
                 stream_data, 
                 activity_metadata,
-                corrected_distance
+                corrected_distance,
+                trim_options
             )
             
             if not trimmed_metrics:
@@ -651,6 +675,207 @@ def check_env():
         env_status["REDIS_CONNECTION"] = f"ERROR: {str(e)}"
     
     return jsonify(env_status)
+
+@app.route("/activity-streams", methods=["GET"])
+def get_activity_streams():
+    """
+    Retrieve specific activity streams for visualization.
+    Params:
+        - activity_id: ID of the activity
+        - token: Strava API token
+    Returns:
+        JSON with streams data formatted for visualization
+    """
+    activity_id = request.args.get("activity_id")
+    token = request.args.get("token")
+    
+    if not activity_id or not token:
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    # Request streams from Strava
+    streams_url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {
+        # Request specific streams needed for visualization
+        "keys": "time,distance,velocity_smooth,heartrate,altitude",
+        "key_by_type": "true"
+    }
+    
+    try:
+        app.logger.info(f"Requesting streams for visualization: {activity_id}")
+        response = requests.get(streams_url, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            app.logger.error(f"Failed to get activity streams: {response.status_code} {response.text}")
+            return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
+            
+        # Get activity metadata for additional context
+        activity_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+        activity_response = requests.get(activity_url, headers=headers)
+        
+        if activity_response.status_code != 200:
+            app.logger.warning(f"Failed to get activity metadata: {activity_response.status_code}")
+            activity_metadata = {}
+        else:
+            activity_metadata = activity_response.json()
+            
+        # Parse the stream data
+        stream_data = response.json()
+        
+        # Process the streams data for visualization
+        viz_data = format_streams_for_visualization(stream_data, activity_metadata)
+        
+        return jsonify(viz_data)
+        
+    except Exception as e:
+        app.logger.error(f"Error retrieving activity streams: {str(e)}")
+        app.logger.error(traceback.format_exc())
+        return jsonify({"error": f"Error: {str(e)}"}), 500
+
+def format_streams_for_visualization(stream_data, activity_metadata):
+    """
+    Format the streams data for visualization in the frontend.
+    
+    Args:
+        stream_data (dict): Stream data from Strava API
+        activity_metadata (dict): Activity metadata
+        
+    Returns:
+        dict: Formatted data for visualization
+    """
+    # Get measurement preferences (metric or imperial)
+    is_metric = activity_metadata.get("measurement_preference", "meters") == "meters"
+    
+    # Prepare the base response
+    response = {
+        "activity": {
+            "id": activity_metadata.get("id", ""),
+            "name": activity_metadata.get("name", "Activity"),
+            "type": activity_metadata.get("type", "Run"),
+            "start_date": activity_metadata.get("start_date_local", ""),
+            "distance": activity_metadata.get("distance", 0),
+            "elapsed_time": activity_metadata.get("elapsed_time", 0),
+            "moving_time": activity_metadata.get("moving_time", 0),
+            "is_metric": is_metric
+        },
+        "streams": {},
+        "pace_data": [],
+        "elevation_data": []
+    }
+    
+    # Check if we have the required streams
+    has_time = "time" in stream_data
+    has_distance = "distance" in stream_data
+    has_velocity = "velocity_smooth" in stream_data
+    has_altitude = "altitude" in stream_data
+    
+    if not (has_time and has_distance):
+        app.logger.warning("Missing required streams (time or distance)")
+        return {"error": "Missing required stream data"}
+    
+    # Extract time and distance streams
+    time_stream = stream_data.get("time", {}).get("data", [])
+    distance_stream = stream_data.get("distance", {}).get("data", [])
+    
+    # Basic validation - ensure same length
+    if len(time_stream) != len(distance_stream):
+        app.logger.warning(f"Stream length mismatch: time={len(time_stream)}, distance={len(distance_stream)}")
+        # Trim to the shorter length
+        min_length = min(len(time_stream), len(distance_stream))
+        time_stream = time_stream[:min_length]
+        distance_stream = distance_stream[:min_length]
+    
+    # Calculate pace data (time per distance unit)
+    pace_data = []
+    if has_velocity:
+        velocity_stream = stream_data.get("velocity_smooth", {}).get("data", [])
+        
+        # Trim velocity stream to match time/distance
+        velocity_stream = velocity_stream[:min(len(velocity_stream), len(time_stream))]
+        
+        for i in range(len(time_stream)):
+            time_seconds = time_stream[i]
+            distance_meters = distance_stream[i]
+            
+            # Convert meters to miles/km based on user preference
+            if is_metric:
+                distance_km = distance_meters / 1000
+                distance_formatted = f"{distance_km:.2f} km"
+            else:
+                distance_miles = distance_meters / 1609.34
+                distance_formatted = f"{distance_miles:.2f} mi"
+            
+            # Calculate pace from velocity (m/s)
+            if i < len(velocity_stream) and velocity_stream[i] > 0:
+                velocity = velocity_stream[i]  # in m/s
+                
+                # Convert to pace (time per distance)
+                if is_metric:
+                    # min/km
+                    pace_seconds_per_km = 1000 / velocity
+                    pace_minutes = pace_seconds_per_km / 60
+                    pace_formatted = f"{int(pace_minutes)}:{int((pace_minutes % 1) * 60):02d}"
+                else:
+                    # min/mile
+                    pace_seconds_per_mile = 1609.34 / velocity
+                    pace_minutes = pace_seconds_per_mile / 60
+                    pace_formatted = f"{int(pace_minutes)}:{int((pace_minutes % 1) * 60):02d}"
+            else:
+                pace_formatted = "0:00"
+                velocity = 0
+            
+            # Calculate elapsed time in minutes for visualization
+            minutes_elapsed = time_seconds / 60
+            
+            pace_data.append({
+                "time": time_seconds,
+                "minutes": minutes_elapsed,
+                "distance": distance_meters,
+                "distance_formatted": distance_formatted,
+                "velocity": velocity,
+                "pace": pace_formatted
+            })
+    
+    # Add elevation data if available
+    elevation_data = []
+    if has_altitude:
+        altitude_stream = stream_data.get("altitude", {}).get("data", [])
+        
+        # Trim to match time stream
+        altitude_stream = altitude_stream[:min(len(altitude_stream), len(time_stream))]
+        
+        for i in range(len(time_stream)):
+            if i < len(altitude_stream):
+                elevation_data.append({
+                    "time": time_stream[i],
+                    "minutes": time_stream[i] / 60,
+                    "altitude": altitude_stream[i]
+                })
+    
+    # Calculate summary metrics
+    if has_velocity and len(velocity_stream) > 0:
+        avg_velocity = sum(velocity_stream) / len(velocity_stream)
+        
+        # Calculate average pace
+        if is_metric:
+            # min/km
+            avg_pace_seconds_per_km = 1000 / avg_velocity
+            avg_pace_minutes = avg_pace_seconds_per_km / 60
+            avg_pace = f"{int(avg_pace_minutes)}:{int((avg_pace_minutes % 1) * 60):02d}"
+        else:
+            # min/mile
+            avg_pace_seconds_per_mile = 1609.34 / avg_velocity
+            avg_pace_minutes = avg_pace_seconds_per_mile / 60
+            avg_pace = f"{int(avg_pace_minutes)}:{int((avg_pace_minutes % 1) * 60):02d}"
+            
+        response["activity"]["average_pace"] = avg_pace
+        response["activity"]["average_speed"] = avg_velocity
+    
+    # Add the processed data to the response
+    response["pace_data"] = pace_data
+    response["elevation_data"] = elevation_data
+    
+    return response
 
 # ---------------- END ROUTES ----------------
 

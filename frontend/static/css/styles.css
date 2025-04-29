@@ -710,3 +710,283 @@ input[type="checkbox"]:disabled:checked {
     padding: 12px 15px;
   }
 }
+
+/* Activity Visualization Styles */
+.visualization-container {
+  background-color: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: var(--box-shadow);
+}
+
+.visualization-container h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--dark-gray);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.graph-container {
+  background-color: var(--light-gray);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.graph-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--dark-gray);
+  font-weight: 600;
+}
+
+.graph-controls {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-button {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 50px;
+  padding: 2px;
+  display: flex;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-option {
+  padding: 5px 12px;
+  border-radius: 50px;
+  transition: all 0.2s ease;
+}
+
+.toggle-option.active {
+  background-color: var(--strava-orange);
+  color: white;
+  font-weight: 500;
+}
+
+.canvas-container {
+  position: relative;
+  height: 250px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.trim-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.trim-marker {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background-color: #333;
+  cursor: ew-resize;
+  pointer-events: all;
+  z-index: 10;
+}
+
+.trim-marker::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  background-color: #333;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.start-marker {
+  left: 10%;
+  background-color: #007bff;
+}
+
+.start-marker::before {
+  background-color: #007bff;
+}
+
+.end-marker {
+  left: 90%;
+  background-color: #dc3545;
+}
+
+.end-marker::before {
+  background-color: #dc3545;
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 13px;
+  color: var(--medium-gray);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-color {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.legend-marker {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+}
+
+.legend-marker::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 0;
+  height: 14px;
+  width: 2px;
+  background-color: #333;
+}
+
+.legend-marker::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background-color: #555;
+  border: 1px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.trim-markers-legend .legend-marker::after {
+  background-color: #dc3545;
+}
+
+/* Comparison Table Styles */
+.comparison-container {
+  background-color: white;
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+}
+
+.comparison-container h4 {
+  margin: 0 0 15px;
+  font-size: 16px;
+  color: var(--dark-gray);
+  font-weight: 600;
+}
+
+.comparison-table {
+  width: 100%;
+  font-size: 14px;
+}
+
+.comparison-header, .comparison-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  padding: 10px 0;
+  align-items: center;
+}
+
+.comparison-header {
+  font-weight: 600;
+  color: var(--medium-gray);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comparison-row {
+  border-bottom: 1px solid var(--border-color);
+  color: var(--dark-gray);
+}
+
+.comparison-row:last-child {
+  border-bottom: none;
+}
+
+.metric-label {
+  font-weight: 600;
+}
+
+.original-value {
+  color: var(--medium-gray);
+}
+
+.edited-value {
+  color: var(--strava-orange);
+  font-weight: 500;
+}
+
+.difference {
+  font-size: 13px;
+}
+
+.difference.positive {
+  color: #28a745;
+}
+
+.difference.negative {
+  color: #dc3545;
+}
+
+/* Responsive adjustments for visualizations */
+@media (max-width: 768px) {
+  .comparison-header, .comparison-row {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    font-size: 13px;
+  }
+  
+  .canvas-container {
+    height: 200px;
+  }
+  
+  .graph-legend {
+    font-size: 12px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .graph-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .comparison-header, .comparison-row {
+    grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    font-size: 12px;
+    gap: 5px;
+  }
+  
+  .canvas-container {
+    height: 180px;
+  }
+}

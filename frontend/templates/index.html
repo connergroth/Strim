@@ -40,6 +40,10 @@
             });
         });
     </script>
+
+    <!-- Add Chart.js for visualizations -->
+    <link rel="icon" type="image/png" href="/static/assets/favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
     <!-- Message container for notifications -->
@@ -104,6 +108,76 @@
             <div id="distanceInputContainer" style="display: none;">
                 <label for="newDistance">Enter New Distance (miles):</label>
                 <input type="number" id="newDistance" min="0.1" step="0.01" placeholder="Enter new distance">
+            </div>
+        </div>
+    
+        <!-- Activity Visualization Section -->
+        <div id="activityVisualization" class="visualization-container" style="display: none;">
+            <h3>Activity Insights</h3>
+            
+            <!-- Pace/Speed Graph -->
+            <div class="graph-container">
+                <div class="graph-header">
+                    <h4>Pace Over Time</h4>
+                    <div class="graph-controls">
+                        <button id="toggleSpeedPace" class="toggle-button">
+                            <span class="toggle-option active" data-option="pace">Pace</span>
+                            <span class="toggle-option" data-option="speed">Speed</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="paceChart"></canvas>
+                    <div id="trimMarkers" class="trim-markers">
+                        <div id="startMarker" class="trim-marker start-marker" title="Trim start point"></div>
+                        <div id="endMarker" class="trim-marker end-marker" title="Trim end point"></div>
+                    </div>
+                </div>
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: rgba(252, 76, 2, 0.7);"></span>
+                        <span class="legend-label">Original Activity</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background-color: rgba(0, 128, 0, 0.7);"></span>
+                        <span class="legend-label">Trimmed Section</span>
+                    </div>
+                    <div class="legend-item trim-markers-legend">
+                        <span class="legend-marker"></span>
+                        <span class="legend-label">Trim Points (drag to adjust)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Before vs After Comparison -->
+            <div class="comparison-container">
+                <h4>Before vs After Comparison</h4>
+                <div class="comparison-table">
+                    <div class="comparison-header">
+                        <div class="metric-label"></div>
+                        <div class="original-value">Original</div>
+                        <div class="edited-value">Edited</div>
+                        <div class="difference">Difference</div>
+                    </div>
+                    <div class="comparison-row">
+                        <div class="metric-label">Distance</div>
+                        <div id="originalDistance" class="original-value">--</div>
+                        <div id="editedDistance" class="edited-value">--</div>
+                        <div id="distanceDiff" class="difference">--</div>
+                    </div>
+                    <div class="comparison-row">
+                        <div class="metric-label">Time</div>
+                        <div id="originalTime" class="original-value">--</div>
+                        <div id="editedTime" class="edited-value">--</div>
+                        <div id="timeDiff" class="difference">--</div>
+                    </div>
+                    <div class="comparison-row">
+                        <div class="metric-label">Pace</div>
+                        <div id="originalPace" class="original-value">--</div>
+                        <div id="editedPace" class="edited-value">--</div>
+                        <div id="paceDiff" class="difference">--</div>
+                    </div>
+                </div>
             </div>
         </div>
     
