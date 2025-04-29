@@ -177,9 +177,10 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   margin-bottom: 25px;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  background: white;
 }
 
 th {
@@ -187,26 +188,30 @@ th {
   color: white;
   font-weight: 600;
   letter-spacing: 0.3px;
-  padding: 16px 18px;
+  padding: 18px 20px;
   text-align: left;
   position: relative;
+  font-size: 0.95em;
+  text-transform: uppercase;
 }
 
 th:not(:last-child)::after {
   content: '';
   position: absolute;
   right: 0;
-  top: 25%;
-  height: 50%;
+  top: 20%;
+  height: 60%;
   width: 1px;
-  background-color: rgba(255,255,255,0.2);
+  background-color: rgba(255,255,255,0.15);
 }
 
 td {
-  padding: 14px 18px;
+  padding: 16px 20px;
   text-align: left;
-  border-bottom: 1px solid #f0f0f0;
-  vertical-align: top;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  vertical-align: middle;
+  font-size: 0.95em;
+  color: var(--dark-gray);
 }
 
 tr:last-child td {
@@ -214,7 +219,7 @@ tr:last-child td {
 }
 
 tr:nth-child(odd) {
-  background-color: rgba(249, 249, 249, 0.7);
+  background-color: rgba(249, 249, 249, 0.5);
 }
 
 tr:nth-child(even) {
@@ -226,11 +231,14 @@ tr {
 }
 
 tr:hover {
-  background-color: rgba(252, 76, 2, 0.04);
+  background-color: rgba(252, 76, 2, 0.03);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
 }
 
 tr.selected {
-  background-color: rgba(252, 76, 2, 0.08);
+  background-color: rgba(252, 76, 2, 0.06);
+  box-shadow: 0 2px 8px rgba(252, 76, 2, 0.08);
 }
 
 td a {
@@ -238,11 +246,14 @@ td a {
   text-decoration: none;
   font-weight: 500;
   transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 td a:hover {
   color: var(--strava-orange-hover);
-  text-decoration: underline;
+  background-color: rgba(252, 76, 2, 0.05);
+  text-decoration: none;
 }
 
 /* Radio Button Styling */
@@ -250,19 +261,21 @@ input[type="radio"] {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #ddd;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e0e0e0;
   border-radius: 50%;
   outline: none;
   transition: all 0.2s ease;
   position: relative;
   cursor: pointer;
   vertical-align: middle;
+  background-color: white;
 }
 
 input[type="radio"]:checked {
   border-color: var(--strava-orange);
+  background-color: white;
 }
 
 input[type="radio"]:checked::before {
@@ -271,14 +284,15 @@ input[type="radio"]:checked::before {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background-color: var(--strava-orange);
 }
 
 input[type="radio"]:hover {
   border-color: var(--strava-orange-hover);
+  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
 }
 
 /* Activity Options */
