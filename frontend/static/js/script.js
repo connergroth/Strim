@@ -114,6 +114,12 @@ function showAuthSection() {
 function showActivitySection() {
   document.getElementById("authSection").classList.add("hidden");
   document.getElementById("activitySection").classList.remove("hidden");
+
+  // Hide the steps section when showing activities
+  const stepsSection = document.querySelector(".steps");
+  if (stepsSection) {
+    stepsSection.classList.add("hidden");
+  }
 }
 
 /**
@@ -354,8 +360,8 @@ function displayActivities(activities) {
 
       actionRow.innerHTML = `
                 <td colspan="4">
-                    <button id="toggleActivitiesBtn" class="toggle-activities-btn">
-                        <span>${actionText}</span> <i class="fas ${actionIcon}"></i>
+                    <button id="toggleActivitiesBtn" class="show-recent-button">
+                        <i class="fas ${actionIcon}"></i><span>${actionText}</span>
                     </button>
                 </td>
             `;
@@ -655,6 +661,9 @@ async function trimActivity() {
       messageEl.className = "success";
       messageEl.style.display = "block";
 
+      // Set a flag to indicate success to prevent overriding with error messages
+      window.lastActivityTrimSuccess = true;
+
       // Refresh activities after a short delay
       setTimeout(fetchActivities, 1500);
     } else {
@@ -662,7 +671,20 @@ async function trimActivity() {
     }
   } catch (error) {
     console.error("Error processing activity:", error);
-    showMessage(`Error: ${error.message}`, "error");
+
+    // Only show error message if we didn't just show a success message
+    if (!window.lastActivityTrimSuccess) {
+      showMessage(`Error: ${error.message}`, "error");
+    } else {
+      // If we had a success but still got an error (like a timeout),
+      // just log it without showing to user
+      console.log("Suppressing error after successful trim:", error.message);
+    }
+  } finally {
+    // Reset the success flag after a short delay
+    setTimeout(() => {
+      window.lastActivityTrimSuccess = false;
+    }, 3000);
   }
 }
 
@@ -767,7 +789,7 @@ function formatTime(seconds) {
 }
 
 /**
- * Format distance based on units (metric or imperial)
+ * Format distance (km or miles)
  */
 function formatDistance(meters, isMetric = false) {
   if (!meters) return "--";
@@ -828,7 +850,7 @@ function updateComparisonTable() {
   const paceDiffEl = document.getElementById("paceDiff");
 
   // Get metrics
-  const isMetric = activityData?.activity?.is_metric;
+  const isMetric = activityData?.activity?.is_metric || false;
 
   // Update original values
   originalDistanceEl.textContent = formatDistance(
@@ -914,8 +936,8 @@ function createPaceChart() {
 
   const ctx = document.getElementById("paceChart").getContext("2d");
 
-  // Default to pace view
-  const isMetric = activityData.activity.is_metric;
+  // Default to pace view and non-metric
+  const isMetric = activityData.activity.is_metric || false;
 
   // Prepare data for the chart
   const labels = activityData.pace_data.map((d) => d.minutes);
@@ -1028,7 +1050,7 @@ function togglePaceSpeedView() {
   if (!paceChart || !activityData) return;
 
   showingPace = !showingPace;
-  const isMetric = activityData.activity.is_metric;
+  const isMetric = activityData.activity.is_metric || false;
 
   // Update toggle button UI
   const paceOption = document.querySelector(
