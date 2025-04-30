@@ -209,7 +209,7 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
         activity_id (str): Original activity ID
         token (str): Strava access token
         original_name (str): Original activity name
-        new_activity_id (str): ID of the new trimmed activity
+        new_activity_id (str): ID of the new trimmed activity, or "pending" if not yet created
         
     Returns:
         bool: True if successful, False otherwise
@@ -239,11 +239,19 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
         new_name = f"ARCHIVED_COPY_{timestamp}_{random_suffix}"
         
         # Create a helpful description for the original activity
-        description = (
-            f"This is an archived copy of '{original_name}' that has been trimmed using Strim.\n\n"
-            f"A new version is available here: https://www.strava.com/activities/{new_activity_id}\n\n"
-            f"You can safely delete this archived copy."
-        )
+        if new_activity_id == "pending":
+            # If the new activity hasn't been created yet, use a generic description
+            description = (
+                f"This is an archived copy of '{original_name}' that has been trimmed using Strim.\n\n"
+                f"You can safely delete this archived copy once the new trimmed activity is created."
+            )
+        else:
+            # Include a link to the new activity
+            description = (
+                f"This is an archived copy of '{original_name}' that has been trimmed using Strim.\n\n"
+                f"A new version is available here: https://www.strava.com/activities/{new_activity_id}\n\n"
+                f"You can safely delete this archived copy."
+            )
         
         # Prepare the payload with a significantly altered name
         payload = {

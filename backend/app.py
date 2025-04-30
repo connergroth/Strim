@@ -431,9 +431,24 @@ def trim_activity():
             except Exception as e:
                 app.logger.warning(f"Error modifying original activity: {str(e)}")
         
-        # 4. Create a new activity with the processed metrics
+        # 4. Mark the original activity as archived BEFORE creating the new one
+        # This prevents naming conflicts with the new activity
+        original_activity_name = activity_metadata.get("name", "Activity")
+        if manual_trim_points or edit_distance:
+            try:
+                app.logger.info(f"Marking original activity {activity_id} as archived")
+                api_utils.mark_original_activity(
+                    activity_id, 
+                    token, 
+                    original_activity_name, 
+                    "pending"  # Placeholder since we don't have the new ID yet
+                )
+            except Exception as e:
+                app.logger.warning(f"Error marking original activity: {str(e)}")
+        
+        # 5. Create a new activity with the processed metrics
         # Make sure to use the original activity name for the new trimmed activity
-        trimmed_metrics["name"] = activity_metadata.get("name", "Activity")
+        trimmed_metrics["name"] = original_activity_name
         app.logger.info(f"Creating new activity from processed metrics with name: {trimmed_metrics['name']}")
         new_activity_id = api_utils.create_activity(token, trimmed_metrics)
         
@@ -442,18 +457,31 @@ def trim_activity():
             
         app.logger.info(f"Successfully created new activity: {new_activity_id}")
         
-        # 5. Mark the original activity as archived (if needed)
-        if manual_trim_points or edit_distance:
+        # 6. Update the archived activity description with the correct new activity ID
+        if (manual_trim_points or edit_distance) and new_activity_id != "pending":
             try:
-                app.logger.info(f"Marking original activity {activity_id} as archived")
-                api_utils.mark_original_activity(
-                    activity_id, 
-                    token, 
-                    activity_metadata.get("name", "Activity"), 
-                    new_activity_id
-                )
+                # Get the updated activity details
+                archived_activity = api_utils.get_activity_details(activity_id, token)
+                if archived_activity:
+                    # Update description with the correct new activity ID
+                    update_url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+                    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                    
+                    description = archived_activity.get("description", "")
+                    # Replace placeholder or empty description with the correct link
+                    updated_description = (
+                        f"This is an archived copy of '{original_activity_name}' that has been trimmed using Strim.\n\n"
+                        f"A new version is available here: https://www.strava.com/activities/{new_activity_id}\n\n"
+                        f"You can safely delete this archived copy."
+                    )
+                    
+                    update_payload = {
+                        "description": updated_description
+                    }
+                    
+                    requests.put(update_url, headers=headers, json=update_payload)
             except Exception as e:
-                app.logger.warning(f"Error marking original activity: {str(e)}")
+                app.logger.warning(f"Error updating archived activity description: {str(e)}")
         
         # Return success with the new activity ID
         return jsonify({
