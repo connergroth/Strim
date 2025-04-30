@@ -573,20 +573,35 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         elif 'average_cadence' in activity_metadata:
             metrics['average_cadence'] = activity_metadata['average_cadence']
         
+        # Calculate and preserve velocity data
         if 'velocity_smooth' in df.columns:
+            # Calculate average speed for the activity metadata
             metrics['average_speed'] = float(df['velocity_smooth'].mean())
+            
+            # Store the actual velocity data points for use in file creation
+            metrics['velocity_data'] = df['velocity_smooth'].tolist()
+            logger.info(f"Preserved {len(metrics['velocity_data'])} velocity data points for graphs")
         elif 'average_speed' in activity_metadata:
             metrics['average_speed'] = activity_metadata['average_speed']
             
         # Preserve elevation data if available
         if 'altitude' in df.columns:
             metrics['total_elevation_gain'] = max(0, df['altitude'].max() - df['altitude'].min())
+            # Also preserve the altitude data
+            metrics['altitude_data'] = df['altitude'].tolist()
+            logger.info(f"Preserved {len(metrics['altitude_data'])} altitude data points")
         elif 'total_elevation_gain' in activity_metadata:
             # Scale elevation based on distance ratio
             original_distance = activity_metadata.get('distance', 0)
             if original_distance > 0:
                 distance_ratio = metrics['distance'] / original_distance
                 metrics['total_elevation_gain'] = activity_metadata['total_elevation_gain'] * distance_ratio
+        
+        # Store time and distance points as well to ensure we have complete data
+        if 'time' in df.columns:
+            metrics['time_data'] = df['time'].tolist()
+        if 'distance' in df.columns:
+            metrics['distance_data'] = df['distance'].tolist()
         
         logger.info(f"Built metrics for trimmed activity: {metrics['name']}")
         return metrics
