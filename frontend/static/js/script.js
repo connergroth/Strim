@@ -1702,6 +1702,18 @@ async function loadActivityVisualization(activityId) {
     const response = await fetch(url);
 
     if (!response.ok) {
+      // Show a user-friendly message based on the error
+      if (response.status === 500) {
+        visualizationContainer.innerHTML = `
+          <div class="no-data-message">
+            <i class="fas fa-exclamation-circle" style="color: var(--accent-color); font-size: 24px; margin-bottom: 10px;"></i>
+            <h3>Activity Data Unavailable</h3>
+            <p>Stream data for this activity isn't available. This can happen with older activities or if the activity was created from manual entry.</p>
+            <p>You can still trim this activity, but the visualization preview won't be available.</p>
+          </div>
+        `;
+        return;
+      }
       throw new Error(`Failed to load activity data (${response.status})`);
     }
 
@@ -1710,6 +1722,19 @@ async function loadActivityVisualization(activityId) {
 
     if (activityData.error) {
       throw new Error(activityData.error);
+    }
+
+    // Check if pace data is available
+    if (!activityData.pace_data || activityData.pace_data.length === 0) {
+      visualizationContainer.innerHTML = `
+        <div class="no-data-message">
+          <i class="fas fa-exclamation-circle" style="color: var(--accent-color); font-size: 24px; margin-bottom: 10px;"></i>
+          <h3>Activity Data Incomplete</h3>
+          <p>This activity doesn't have the necessary data for visualization (such as pace or distance information).</p>
+          <p>You can still trim this activity, but the visualization preview won't be available.</p>
+        </div>
+      `;
+      return;
     }
 
     // Restore visualization container content
@@ -1782,48 +1807,25 @@ async function loadActivityVisualization(activityId) {
             </div>
         `;
 
-    // Create the pace chart
+    // Create the activity visualization and setup UI components
     createPaceChart();
-
-    // Initialize marker dragging
+    setupTogglePaceSpeedButton();
     initMarkerDrag();
-
-    // Add toggle event listener
-    document
-      .getElementById("toggleSpeedPace")
-      .addEventListener("click", togglePaceSpeedView);
-
-    // Add distance input event listener to update metrics
-    const newDistanceInput = document.getElementById("newDistance");
-    if (newDistanceInput) {
-      newDistanceInput.addEventListener("input", updateTrimmedMetrics);
-    }
-
-    // Add time input event listener to update metrics
-    const newTimeInput = document.getElementById("newTime");
-    if (newTimeInput) {
-      newTimeInput.addEventListener("input", updateTrimmedMetrics);
-    }
-
-    const editDistanceCheckbox = document.getElementById(
-      "editDistanceCheckbox"
-    );
-    if (editDistanceCheckbox) {
-      editDistanceCheckbox.addEventListener("change", updateTrimmedMetrics);
-    }
-
-    const editTimeCheckbox = document.getElementById("editTimeCheckbox");
-    if (editTimeCheckbox) {
-      editTimeCheckbox.addEventListener("change", updateTrimmedMetrics);
-    }
+    updateTrimMarkers();
+    updateTrimHighlighting();
+    updateTrimmedMetrics();
   } catch (error) {
     console.error("Error loading activity visualization:", error);
+
+    // Show a user-friendly error message instead of a technical error
     visualizationContainer.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i>
-                <p>Failed to load activity data: ${error.message}</p>
-            </div>
-        `;
+      <div class="no-data-message">
+        <i class="fas fa-exclamation-circle" style="color: var(--accent-color); font-size: 24px; margin-bottom: 10px;"></i>
+        <h3>Activity Data Unavailable</h3>
+        <p>We couldn't load visualization data for this activity.</p>
+        <p>You can still trim this activity, but the visualization preview won't be available.</p>
+      </div>
+    `;
   }
 }
 
@@ -1898,5 +1900,37 @@ function initTheme() {
 
     // Update the icon based on current theme
     updateThemeToggleIcon();
+  }
+}
+
+/**
+ * Set up the pace/speed toggle button event listener
+ */
+function setupTogglePaceSpeedButton() {
+  const toggleButton = document.getElementById("toggleSpeedPace");
+  if (toggleButton) {
+    toggleButton.addEventListener("click", togglePaceSpeedView);
+  }
+
+  // Add distance input event listener to update metrics
+  const newDistanceInput = document.getElementById("newDistance");
+  if (newDistanceInput) {
+    newDistanceInput.addEventListener("input", updateTrimmedMetrics);
+  }
+
+  // Add time input event listener to update metrics
+  const newTimeInput = document.getElementById("newTime");
+  if (newTimeInput) {
+    newTimeInput.addEventListener("input", updateTrimmedMetrics);
+  }
+
+  const editDistanceCheckbox = document.getElementById("editDistanceCheckbox");
+  if (editDistanceCheckbox) {
+    editDistanceCheckbox.addEventListener("change", updateTrimmedMetrics);
+  }
+
+  const editTimeCheckbox = document.getElementById("editTimeCheckbox");
+  if (editTimeCheckbox) {
+    editTimeCheckbox.addEventListener("change", updateTrimmedMetrics);
   }
 }

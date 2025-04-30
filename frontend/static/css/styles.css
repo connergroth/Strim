@@ -1021,3 +1021,29 @@ input[type="checkbox"]:disabled {
 .show-recent-button i {
   font-size: 1rem;
 }
+
+/* No data message styling */
+.no-data-message {
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.no-data-message h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.no-data-message p {
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  max-width: 500px;
+  line-height: 1.5;
+}
