@@ -1097,6 +1097,7 @@ window.selectActivity = selectActivity;
 window.toggleDistanceInput = toggleDistanceInput;
 window.toggleTimeInput = toggleTimeInput;
 window.trimActivity = trimActivity;
+window.undoLastTrim = undoLastTrim;
 window.logout = logout;
 window.loginWithStrava = loginWithStrava;
 
