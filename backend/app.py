@@ -457,6 +457,10 @@ def trim_activity():
         return jsonify({
             "success": True,
             "new_activity_id": new_activity_id,
+            "original_activity_id": activity_id,
+            "new_distance": trimmed_metrics.get("distance"),
+            "new_time": trimmed_metrics.get("elapsed_time"),
+            "new_pace": (trimmed_metrics.get("elapsed_time") / trimmed_metrics.get("distance")) if trimmed_metrics.get("distance") else 0,
             "token": token
         })
         
@@ -523,25 +527,97 @@ def get_activity_details(activity_id):
             return jsonify({"error": "Unauthorized. No valid token."}), 401
 
         # Get activity details from Strava
-        activity_data = api_utils.get_activity_details(activity_id, token)
-        if not activity_data:
-            return jsonify({"error": "Failed to retrieve activity details from Strava"}), 500
-
-        # Return activity data with token
-        return jsonify({
-            "activity": activity_data,
-            "token": token  # Include token in response
-        })
-
+        activity_metadata = api_utils.get_activity_details(activity_id, token)
+        
+        if not activity_metadata:
+            return jsonify({"error": "Failed to retrieve activity details"}), 404
+            
+        return jsonify(activity_metadata)
     except Exception as e:
-        app.logger.error(f"Error in /activities/{activity_id}/details: {str(e)}")
-        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+        app.logger.error(f"Error retrieving activity details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/restore-activity", methods=["GET"])
+def restore_activity():
+    """Restore an original activity by making it public again and optionally delete the trimmed one."""
+    try:
+        # Get token from request
+        token = get_token_from_request()
+        
+        if not token:
+            return jsonify({"error": "Authentication required"}), 401
+            
+        # Get parameters from request
+        original_activity_id = request.args.get("original_activity_id")
+        new_activity_id = request.args.get("new_activity_id")
+        delete_new = request.args.get("delete_new", "false") == "true"
+        
+        if not original_activity_id:
+            return jsonify({"error": "Original activity ID is required"}), 400
+        
+        # Get original activity details
+        app.logger.info(f"Getting details for original activity {original_activity_id}")
+        original_activity = api_utils.get_activity_details(original_activity_id, token)
+        
+        if not original_activity:
+            return jsonify({"error": "Failed to retrieve original activity details"}), 404
+        
+        # Restore the original activity
+        app.logger.info(f"Restoring original activity {original_activity_id}")
+        
+        # Extract original name (remove [ARCHIVED] prefix if it exists)
+        original_name = original_activity.get("name", "Activity")
+        if original_name.startswith("[ARCHIVED] "):
+            original_name = original_name[11:]  # Remove the prefix
+        
+        # Prepare the payload to update the original activity
+        restore_payload = {
+            "name": original_name,
+            "description": original_activity.get("description", ""),
+            "private": False  # Make the activity public again
+        }
+        
+        # Update the original activity
+        restore_url = f"https://www.strava.com/api/v3/activities/{original_activity_id}"
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        
+        app.logger.info(f"Updating original activity {original_activity_id}")
+        restore_response = requests.put(restore_url, headers=headers, json=restore_payload)
+        
+        if restore_response.status_code != 200:
+            app.logger.error(f"Failed to restore original activity: {restore_response.status_code} {restore_response.text}")
+            return jsonify({"error": "Failed to restore original activity"}), 500
+        
+        # Optionally delete the new trimmed activity
+        delete_result = True
+        if delete_new and new_activity_id:
+            app.logger.info(f"Deleting trimmed activity {new_activity_id}")
+            delete_result = api_utils.delete_activity(new_activity_id, token)
+            
+            if not delete_result:
+                app.logger.warning(f"Failed to delete trimmed activity {new_activity_id}")
+        
+        return jsonify({
+            "success": True,
+            "original_activity_id": original_activity_id,
+            "new_activity_deleted": delete_new and delete_result,
+            "token": token
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error restoring activity: {str(e)}")
+        tb = traceback.format_exc()
+        app.logger.error(tb)
+        return jsonify({
+            "error": f"Error restoring activity: {str(e)}",
+            "traceback": tb
+        }), 500
 
 @app.route("/logout", methods=["POST"])
 def logout():
-    """Logout user by clearing session."""
+    """Clear user session."""
     session.clear()
-    return jsonify({"success": "Logged out"}), 200
+    return jsonify({"success": True})
 
 @app.route("/api/ping", methods=["GET", "OPTIONS"])
 def ping():

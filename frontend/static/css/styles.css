@@ -449,13 +449,43 @@ input[type="checkbox"]:disabled {
 }
 
 #trimActivityButton:disabled {
-  background-color: var(--text-muted);
+  background-color: #cccccc;
   cursor: not-allowed;
-  transform: none;
 }
 
 #trimActivityButton i {
-  font-size: 1.1rem;
+  margin-right: 8px;
+}
+
+/* Secondary button */
+.secondary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.5rem;
+  margin-top: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  width: 100%;
+}
+
+.secondary-button:hover {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.secondary-button:active {
+  transform: translateY(0);
+}
+
+.secondary-button i {
+  margin-right: 8px;
 }
 
 /* Steps section */

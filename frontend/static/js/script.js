@@ -6,6 +6,7 @@ const TOKEN_STORAGE_KEY = "strava_token";
 // Global variables to track state
 let selectedActivityId = null;
 let selectedActivityDistance = null;
+let lastTrimmedActivityInfo = null; // Store information about the last trimmed activity
 
 // Global variables for activity visualization
 let activityData = null;
@@ -403,8 +404,9 @@ function displayActivities(activities) {
  * Handle activity selection with visualization
  */
 function selectActivity(activityId, activityDistance) {
+  // Update global state
   selectedActivityId = activityId;
-  selectedActivityDistance = activityDistance;
+  selectedActivityDistance = parseFloat(activityDistance);
 
   // Pre-fill distance field
   const distanceInput = document.getElementById("newDistance");
@@ -421,6 +423,9 @@ function selectActivity(activityId, activityDistance) {
   console.log(
     `Selected activity: ${activityId}, distance: ${activityDistance} miles`
   );
+
+  // Hide the undo button when selecting a new activity
+  document.getElementById("undoTrimButton").style.display = "none";
 
   // Highlight the selected row
   const rows = document.querySelectorAll("#activityList tr");
@@ -810,6 +815,18 @@ async function trimActivity() {
       // Set a flag to indicate success to prevent overriding with error messages
       window.lastActivityTrimSuccess = true;
 
+      // Store last trimmed activity information
+      lastTrimmedActivityInfo = {
+        activityId: result.new_activity_id,
+        originalActivityId: selectedActivityId,
+        distance: result.new_distance,
+        time: result.new_time,
+        pace: result.new_pace,
+      };
+
+      // Show the undo button
+      document.getElementById("undoTrimButton").style.display = "block";
+
       // Refresh activities after a short delay
       setTimeout(fetchActivities, 1500);
     } else {
@@ -838,11 +855,16 @@ async function trimActivity() {
  * Log out user
  */
 function logout() {
-  console.log("Logging out...");
+  // Show logout message
   showMessage("Logging out...", "info");
 
-  // Clear the token
+  // Clear token from localStorage
   clearToken();
+
+  // Clear any global state
+  selectedActivityId = null;
+  selectedActivityDistance = null;
+  lastTrimmedActivityInfo = null;
 
   // Also call the backend logout endpoint
   fetch(`${BACKEND_URL}/logout`, {
@@ -852,9 +874,91 @@ function logout() {
       console.error("Error calling logout endpoint:", error);
     })
     .finally(() => {
+      // Show auth section
       showAuthSection();
       showMessage("Logged out successfully", "success");
     });
+}
+
+/**
+ * Undo the last trim operation by restoring the original activity to public
+ */
+async function undoLastTrim() {
+  try {
+    if (
+      !lastTrimmedActivityInfo ||
+      !lastTrimmedActivityInfo.originalActivityId
+    ) {
+      showMessage("No recent trim to undo.", "error");
+      return;
+    }
+
+    // Disable the button during processing
+    const undoButton = document.getElementById("undoTrimButton");
+    const originalButtonText = undoButton.innerHTML;
+    undoButton.disabled = true;
+    undoButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>`;
+
+    showMessage("Restoring original activity...", "info");
+
+    // Get token from localStorage
+    const token = getStoredToken();
+
+    if (!token) {
+      showMessage(
+        "Authentication required. Please log in with Strava.",
+        "error"
+      );
+      showAuthSection();
+      return;
+    }
+
+    // Build URL for restoring the original activity
+    const url = `${BACKEND_URL}/restore-activity?original_activity_id=${encodeURIComponent(
+      lastTrimmedActivityInfo.originalActivityId
+    )}&new_activity_id=${encodeURIComponent(
+      lastTrimmedActivityInfo.activityId
+    )}&token=${encodeURIComponent(token)}`;
+
+    // Make request
+    const response = await fetch(url);
+
+    // Re-enable button
+    undoButton.disabled = false;
+    undoButton.innerHTML = originalButtonText;
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error || `Failed to restore activity (${response.status})`
+      );
+    }
+
+    const result = await response.json();
+
+    // Update token if provided
+    if (result.token) {
+      storeToken(result.token);
+    }
+
+    if (result.success) {
+      showMessage("Original activity restored successfully!", "success");
+
+      // Hide the undo button now that the restore is complete
+      document.getElementById("undoTrimButton").style.display = "none";
+
+      // Reset last trimmed activity info
+      lastTrimmedActivityInfo = null;
+
+      // Refresh activities after a short delay
+      setTimeout(fetchActivities, 1500);
+    } else {
+      throw new Error(result.error || "Unknown error occurred");
+    }
+  } catch (error) {
+    console.error("Error restoring activity:", error);
+    showMessage(`Error: ${error.message}`, "error");
+  }
 }
 
 /**
