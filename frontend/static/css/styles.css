@@ -27,6 +27,7 @@
   --button-hover: rgba(0, 0, 0, 0.05);
   --chart-grid: rgba(0, 0, 0, 0.1);
   --hover-color: rgba(0, 0, 0, 0.03);
+  --selected-bg: rgba(252, 76, 2, 0.15);
 }
 
 [data-theme="dark"] {
@@ -52,6 +53,7 @@
   --button-hover: rgba(255, 255, 255, 0.05);
   --chart-grid: rgba(255, 255, 255, 0.1);
   --hover-color: rgba(255, 255, 255, 0.05);
+  --selected-bg: rgba(255, 106, 51, 0.25);
 }
 
 /* Base styles */
@@ -263,7 +265,7 @@ tr:hover {
 }
 
 tr.selected {
-  background-color: rgba(252, 76, 2, 0.1);
+  background-color: var(--selected-bg);
   border-left: 3px solid var(--accent-color);
   font-weight: 500;
 }
@@ -673,7 +675,7 @@ input[type="checkbox"]:disabled {
 }
 
 .toggle-button {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 0.3rem 0.5rem;
@@ -681,6 +683,7 @@ input[type="checkbox"]:disabled {
   align-items: center;
   cursor: pointer;
   font-size: 0.85rem;
+  color: var(--text-primary);
 }
 
 .toggle-option {

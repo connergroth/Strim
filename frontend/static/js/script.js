@@ -829,37 +829,27 @@ function formatTime(seconds) {
 }
 
 /**
- * Format distance (km or miles)
+ * Format distance in miles
  */
 function formatDistance(meters, isMetric = false) {
   if (!meters) return "--";
 
-  if (isMetric) {
-    const km = meters / 1000;
-    return `${km.toFixed(2)} km`;
-  } else {
-    const miles = meters / 1609.34;
-    return `${miles.toFixed(2)} mi`;
-  }
+  // Always use miles regardless of isMetric setting
+  const miles = meters / 1609.34;
+  return `${miles.toFixed(2)} mi`;
 }
 
 /**
- * Format pace (min/km or min/mile)
+ * Format pace (min/mile)
  */
 function formatPace(secondsPerMeter, isMetric = false) {
   if (!secondsPerMeter || secondsPerMeter <= 0) return "--";
 
-  let secondsPerUnit;
-  if (isMetric) {
-    // min/km
-    secondsPerUnit = secondsPerMeter * 1000;
-  } else {
-    // min/mile
-    secondsPerUnit = secondsPerMeter * 1609.34;
-  }
+  // Always use min/mile
+  const secondsPerMile = secondsPerMeter * 1609.34;
 
-  const minutes = Math.floor(secondsPerUnit / 60);
-  const seconds = Math.floor(secondsPerUnit % 60);
+  const minutes = Math.floor(secondsPerMile / 60);
+  const seconds = Math.floor(secondsPerMile % 60);
 
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
@@ -890,7 +880,7 @@ function updateComparisonTable() {
   const paceDiffEl = document.getElementById("paceDiff");
 
   // Get metrics
-  const isMetric = activityData?.activity?.is_metric || false;
+  const isMetric = false; // Always use imperial units
 
   // Update original values
   originalDistanceEl.textContent = formatDistance(
@@ -915,14 +905,10 @@ function updateComparisonTable() {
 
   // Format and display difference values
   if (distanceDiff !== 0) {
-    const distanceUnit = isMetric ? "km" : "mi";
-    const formattedDiff = isMetric
-      ? (distanceDiff / 1000).toFixed(2)
-      : (distanceDiff / 1609.34).toFixed(2);
-
+    const formattedDiff = (distanceDiff / 1609.34).toFixed(2);
     distanceDiffEl.textContent = `${
       formattedDiff > 0 ? "+" : ""
-    }${formattedDiff} ${distanceUnit}`;
+    }${formattedDiff} mi`;
     distanceDiffEl.className =
       distanceDiff > 0 ? "difference positive" : "difference negative";
   } else {
@@ -976,8 +962,8 @@ function createPaceChart() {
 
   const ctx = document.getElementById("paceChart").getContext("2d");
 
-  // Default to pace view and non-metric
-  const isMetric = activityData.activity.is_metric || false;
+  // Always use imperial units
+  const isMetric = false;
 
   // Prepare data for the chart
   const labels = activityData.pace_data.map((d) => d.minutes);
@@ -986,21 +972,17 @@ function createPaceChart() {
   const paceData = activityData.pace_data.map((d) => {
     if (d.velocity <= 0) return null; // Skip points with zero velocity
 
-    // Convert m/s to min/km or min/mile
+    // Convert m/s to min/mile
     const secondsPerMeter = 1 / d.velocity;
-    return isMetric
-      ? (secondsPerMeter * 1000) / 60 // min/km
-      : (secondsPerMeter * 1609.34) / 60; // min/mile
+    return (secondsPerMeter * 1609.34) / 60; // min/mile
   });
 
   // For speed (higher is better)
   const speedData = activityData.pace_data.map((d) => {
     if (d.velocity <= 0) return null;
 
-    // Convert m/s to km/h or mph
-    return isMetric
-      ? d.velocity * 3.6 // km/h
-      : d.velocity * 2.237; // mph
+    // Convert m/s to mph
+    return d.velocity * 2.237; // mph
   });
 
   // Create the chart
@@ -1010,7 +992,7 @@ function createPaceChart() {
       labels: labels,
       datasets: [
         {
-          label: isMetric ? "Pace (min/km)" : "Pace (min/mile)",
+          label: "Pace (min/mile)",
           data: paceData,
           borderColor: "rgba(252, 76, 2, 0.7)",
           backgroundColor: "rgba(252, 76, 2, 0.1)",
@@ -1039,7 +1021,7 @@ function createPaceChart() {
           reverse: true, // For pace, lower is better
           title: {
             display: true,
-            text: isMetric ? "Pace (min/km)" : "Pace (min/mile)",
+            text: "Pace (min/mile)",
           },
           grid: {
             color: "rgba(0, 0, 0, 0.05)",
@@ -1090,7 +1072,9 @@ function togglePaceSpeedView() {
   if (!paceChart || !activityData) return;
 
   showingPace = !showingPace;
-  const isMetric = activityData.activity.is_metric || false;
+
+  // Always use imperial units
+  const isMetric = false;
 
   // Update toggle button UI
   const paceOption = document.querySelector(
@@ -1111,24 +1095,18 @@ function togglePaceSpeedView() {
   // Update chart data and options
   if (showingPace) {
     // Convert back to pace
-    paceChart.data.datasets[0].label = isMetric
-      ? "Pace (min/km)"
-      : "Pace (min/mile)";
+    paceChart.data.datasets[0].label = "Pace (min/mile)";
 
     // Convert velocity to pace
     paceChart.data.datasets[0].data = activityData.pace_data.map((d) => {
       if (d.velocity <= 0) return null;
       const secondsPerMeter = 1 / d.velocity;
-      return isMetric
-        ? (secondsPerMeter * 1000) / 60 // min/km
-        : (secondsPerMeter * 1609.34) / 60; // min/mile
+      return (secondsPerMeter * 1609.34) / 60; // min/mile
     });
 
     // For pace, reverse the Y axis (lower is better)
     paceChart.options.scales.y.reverse = true;
-    paceChart.options.scales.y.title.text = isMetric
-      ? "Pace (min/km)"
-      : "Pace (min/mile)";
+    paceChart.options.scales.y.title.text = "Pace (min/mile)";
 
     // Update tooltip
     paceChart.options.plugins.tooltip.callbacks.label = function (context) {
@@ -1141,30 +1119,24 @@ function togglePaceSpeedView() {
     };
   } else {
     // Convert to speed
-    paceChart.data.datasets[0].label = isMetric
-      ? "Speed (km/h)"
-      : "Speed (mph)";
+    paceChart.data.datasets[0].label = "Speed (mph)";
 
     // Convert velocity to speed
     paceChart.data.datasets[0].data = activityData.pace_data.map((d) => {
       if (d.velocity <= 0) return null;
-      return isMetric
-        ? d.velocity * 3.6 // km/h
-        : d.velocity * 2.237; // mph
+      return d.velocity * 2.237; // mph
     });
 
     // For speed, don't reverse the Y axis (higher is better)
     paceChart.options.scales.y.reverse = false;
-    paceChart.options.scales.y.title.text = isMetric
-      ? "Speed (km/h)"
-      : "Speed (mph)";
+    paceChart.options.scales.y.title.text = "Speed (mph)";
 
     // Update tooltip
     paceChart.options.plugins.tooltip.callbacks.label = function (context) {
       const value = context.raw;
       if (value == null) return "";
 
-      return `Speed: ${value.toFixed(1)} ${isMetric ? "km/h" : "mph"}`;
+      return `Speed: ${value.toFixed(1)} mph`;
     };
   }
 
