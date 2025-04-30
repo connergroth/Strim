@@ -501,6 +501,16 @@ function toggleDistanceInput() {
     setTimeout(() => {
       container.style.opacity = "1";
     }, 50);
+
+    // Pre-fill with current distance if available and not already filled
+    if (
+      selectedActivityDistance &&
+      (!document.getElementById("newDistance").value ||
+        document.getElementById("newDistance").value === "0")
+    ) {
+      document.getElementById("newDistance").value =
+        selectedActivityDistance.toFixed(2);
+    }
   } else {
     // Animate close
     container.style.opacity = "0";
@@ -510,6 +520,11 @@ function toggleDistanceInput() {
     setTimeout(() => {
       container.style.display = "none";
     }, 300);
+  }
+
+  // Update the comparison table if we have data
+  if (activityData) {
+    updateTrimmedMetrics();
   }
 }
 
@@ -536,6 +551,18 @@ function toggleTimeInput() {
     setTimeout(() => {
       container.style.opacity = "1";
     }, 50);
+
+    // Pre-fill with activity time if available and not already filled
+    if (
+      activityData &&
+      activityData.activity &&
+      activityData.activity.elapsed_time &&
+      !document.getElementById("newTime").value
+    ) {
+      document.getElementById("newTime").value = formatTime(
+        activityData.activity.elapsed_time
+      );
+    }
   } else {
     // Animate close
     container.style.opacity = "0";
@@ -545,6 +572,11 @@ function toggleTimeInput() {
     setTimeout(() => {
       container.style.display = "none";
     }, 300);
+  }
+
+  // Update the comparison table if we have data
+  if (activityData) {
+    updateTrimmedMetrics();
   }
 }
 
@@ -664,11 +696,14 @@ async function trimActivity() {
   let newDistance = null;
 
   if (editDistance) {
-    newDistance = document.getElementById("newDistance").value;
+    const newDistanceInput = document.getElementById("newDistance");
+    newDistance = newDistanceInput.value;
     if (!newDistance || parseFloat(newDistance) <= 0) {
       showMessage("Please enter a valid distance greater than zero.", "error");
       return;
     }
+    // Convert miles to meters
+    newDistance = parseFloat(newDistance) * 1609.34;
   }
 
   // Check if editing time
@@ -899,7 +934,10 @@ async function undoLastTrim() {
     undoButton.disabled = true;
     undoButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>`;
 
-    showMessage("Restoring original activity...", "info");
+    showMessage(
+      "Restoring original activity... This may take a moment.",
+      "info"
+    );
 
     // Get token from localStorage
     const token = getStoredToken();
@@ -942,7 +980,20 @@ async function undoLastTrim() {
     }
 
     if (result.success) {
-      showMessage("Original activity restored successfully!", "success");
+      // Show success message with link to the restored activity
+      const messageDiv = document.createElement("div");
+      messageDiv.innerHTML = `
+        Original activity restored successfully! 
+        <a href="https://www.strava.com/activities/${result.original_activity_id}" 
+          target="_blank" style="margin-left: 10px; color: #FC5200; font-weight: bold; text-decoration: underline;">
+          View on Strava
+        </a>
+      `;
+
+      const messageEl = document.getElementById("message");
+      messageEl.innerHTML = "";
+      messageEl.appendChild(messageDiv);
+      messageEl.className = "success";
 
       // Hide the undo button now that the restore is complete
       document.getElementById("undoTrimButton").style.display = "none";
@@ -979,6 +1030,9 @@ document.addEventListener("DOMContentLoaded", function () {
     message.textContent = "";
   }
 
+  // Initialize theme
+  initTheme();
+
   // Set up event listeners
 
   // Strava auth link
@@ -1000,6 +1054,26 @@ document.addEventListener("DOMContentLoaded", function () {
   const editTimeCheckbox = document.getElementById("editTimeCheckbox");
   if (editTimeCheckbox) {
     editTimeCheckbox.addEventListener("change", toggleTimeInput);
+  }
+
+  // Distance input field
+  const newDistanceInput = document.getElementById("newDistance");
+  if (newDistanceInput) {
+    newDistanceInput.addEventListener("input", function () {
+      if (activityData) {
+        updateTrimmedMetrics();
+      }
+    });
+  }
+
+  // Time input field
+  const newTimeInput = document.getElementById("newTime");
+  if (newTimeInput) {
+    newTimeInput.addEventListener("input", function () {
+      if (activityData) {
+        updateTrimmedMetrics();
+      }
+    });
   }
 
   // Trim activity button
@@ -1542,6 +1616,10 @@ function updateTrimmedMetrics() {
     const trimmedDistance = lastPoint.distance - firstPoint.distance;
     const trimmedTime = lastPoint.time - firstPoint.time;
 
+    // Start with trimmed values as defaults
+    editedMetrics.distance = trimmedDistance;
+    editedMetrics.time = trimmedTime;
+
     // If editing distance is checked, use that value instead
     const editDistanceCheckbox = document.getElementById(
       "editDistanceCheckbox"
@@ -1552,17 +1630,15 @@ function updateTrimmedMetrics() {
 
       if (!isNaN(newDistanceValue) && newDistanceValue > 0) {
         // Convert miles to meters
-        const isMetric = activityData.activity.is_metric;
-        const newDistanceMeters = isMetric
-          ? newDistanceValue * 1000 // km to m
-          : newDistanceValue * 1609.34; // miles to m
-
+        const newDistanceMeters = newDistanceValue * 1609.34; // miles to m
         editedMetrics.distance = newDistanceMeters;
-      } else {
-        editedMetrics.distance = trimmedDistance;
+
+        // If newDistance input is pre-filled but not yet changed, update the input
+        if (newDistanceInput.value === "" || newDistanceInput.value === "0") {
+          // Pre-fill with trimmed distance in miles
+          newDistanceInput.value = (trimmedDistance / 1609.34).toFixed(2);
+        }
       }
-    } else {
-      editedMetrics.distance = trimmedDistance;
     }
 
     // If editing time is checked, use that value instead
@@ -1574,10 +1650,11 @@ function updateTrimmedMetrics() {
       if (timeSeconds !== null && timeSeconds > 0) {
         editedMetrics.time = timeSeconds;
       } else {
-        editedMetrics.time = trimmedTime;
+        // Pre-fill with trimmed time if empty
+        if (newTimeInput.value === "") {
+          newTimeInput.value = formatTime(trimmedTime);
+        }
       }
-    } else {
-      editedMetrics.time = trimmedTime;
     }
 
     // Calculate pace (seconds per meter)
@@ -1822,10 +1899,3 @@ function initTheme() {
     updateThemeToggleIcon();
   }
 }
-
-// Initialize theme on document load
-document.addEventListener("DOMContentLoaded", function () {
-  initTheme();
-
-  // ... existing code ...
-});

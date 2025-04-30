@@ -570,11 +570,25 @@ def restore_activity():
         if original_name.startswith("[ARCHIVED] "):
             original_name = original_name[11:]  # Remove the prefix
         
+        # Generate a unique timestamp and random suffix to avoid duplicate detection
+        import time
+        import random
+        import string
+        
+        timestamp = int(time.time())
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        # Create a new unique name to avoid duplicate detection
+        restored_name = f"{original_name} (Restored {timestamp}-{random_suffix})"
+        
+        app.logger.info(f"Changing activity name to: {restored_name}")
+        
         # Prepare the payload to update the original activity
         restore_payload = {
-            "name": original_name,
+            "name": restored_name,
             "description": original_activity.get("description", ""),
-            "private": False  # Make the activity public again
+            "private": False,  # Make the activity public again
+            "type": original_activity.get("type", "Run"),  # Ensure the type is correct
         }
         
         # Update the original activity
@@ -596,6 +610,21 @@ def restore_activity():
             
             if not delete_result:
                 app.logger.warning(f"Failed to delete trimmed activity {new_activity_id}")
+        
+        # Now that restoration succeeded with a temporary name, let's update it back to the original name
+        # This second update should work because we've already changed it enough to avoid duplicate detection
+        time.sleep(1)  # Short delay to ensure the first update completes
+        
+        final_name_payload = {
+            "name": original_name
+        }
+        
+        app.logger.info(f"Updating activity name back to original: {original_name}")
+        final_update_response = requests.put(restore_url, headers=headers, json=final_name_payload)
+        
+        if final_update_response.status_code != 200:
+            app.logger.warning(f"Failed to restore original name: {final_update_response.status_code} {final_update_response.text}")
+            # This is not critical, so we'll continue and return success anyway
         
         return jsonify({
             "success": True,

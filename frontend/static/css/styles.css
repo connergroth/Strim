@@ -381,7 +381,7 @@ input[type="checkbox"]:disabled {
   cursor: not-allowed;
 }
 
-/* Distance input */
+/* Input containers */
 #distanceInputContainer, #timeInputContainer {
   background-color: var(--bg-secondary);
   border-radius: var(--radius-md);
@@ -389,6 +389,21 @@ input[type="checkbox"]:disabled {
   margin-top: 0.5rem;
   border: 1px solid var(--border-color);
   transition: var(--transition);
+  width: 100%;
+}
+
+/* When both inputs are visible, arrange them side by side on larger screens */
+@media (min-width: 768px) {
+  .input-containers-wrapper {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+  }
+  
+  .input-containers-wrapper #distanceInputContainer,
+  .input-containers-wrapper #timeInputContainer {
+    flex: 1;
+  }
 }
 
 #distanceInputContainer:focus-within, #timeInputContainer:focus-within {

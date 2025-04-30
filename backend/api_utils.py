@@ -54,6 +54,7 @@ def modify_activity_aggressively(activity_id, token):
     import json
     import time
     import random
+    import string
     
     logger = logging.getLogger(__name__)
     
@@ -76,9 +77,10 @@ def modify_activity_aggressively(activity_id, token):
         activity = response.json()
         original_type = activity.get("type", "Run")
         timestamp = int(time.time())
+        random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         
-        # Create a completely different name using a timestamp
-        new_name = f"TEMP_{timestamp}_{random.randint(1000, 9999)}"
+        # Create a completely different name using a timestamp and random string
+        new_name = f"TEMP_{timestamp}_{random_str}"
         
         # Choose a different activity type
         activity_types = ["Workout", "Walk", "Hike", "VirtualRide", "Yoga"]
@@ -98,7 +100,7 @@ def modify_activity_aggressively(activity_id, token):
         logger.info(f"New name: {new_name}, New type: {new_type}")
         
         # Send the update request
-        update_response = requests.put(url, headers=headers, data=json.dumps(payload))
+        update_response = requests.put(url, headers=headers, json=payload)
         
         if update_response.status_code == 200:
             logger.info(f"Successfully modified activity {activity_id}")
@@ -224,8 +226,16 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
             "Content-Type": "application/json"
         }
         
-        # Create a descriptive name for the original activity
-        new_name = f"[ARCHIVED] {original_name}"
+        # Generate unique identifiers to avoid duplicate detection when restoring
+        import time
+        import random
+        import string
+        
+        timestamp = int(time.time())
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        # Create a descriptive name for the original activity with unique identifiers
+        new_name = f"[ARCHIVED] {original_name} ({timestamp}-{random_suffix})"
         
         # Create a helpful description for the original activity
         description = (
@@ -234,7 +244,7 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
             f"You can safely delete this original activity."
         )
         
-        # Prepare the payload
+        # Prepare the payload with a significantly altered name and type
         payload = {
             "name": new_name,
             "description": description,
@@ -244,7 +254,7 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
         logger.info(f"Marking original activity {activity_id} as archived")
         
         # Send the update request
-        response = requests.put(url, headers=headers, data=json.dumps(payload))
+        response = requests.put(url, headers=headers, json=payload)
         
         if response.status_code == 200:
             logger.info(f"Successfully marked original activity {activity_id} as archived")
@@ -275,6 +285,8 @@ def create_activity(token, activity_data):
     import json
     from datetime import datetime
     import time
+    import random
+    import string
     
     logger = logging.getLogger(__name__)
     
@@ -338,8 +350,35 @@ def create_activity(token, activity_data):
         # Log sanitized payload (for debugging)
         logger.info(f"Creating activity with data: {payload}")
         
-        # Send the create request
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        # Try to create the activity
+        response = requests.post(url, headers=headers, json=payload)
+        
+        # If we get a 409 Conflict (duplicate detection), try again with a more unique name
+        max_retries = 3
+        retry_count = 0
+        
+        while response.status_code == 409 and retry_count < max_retries:
+            retry_count += 1
+            
+            # Generate a more unique name with timestamp and random string
+            timestamp = int(time.time())
+            random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            original_name = payload["name"]
+            payload["name"] = f"{original_name} ({timestamp}-{random_str})"
+            
+            # Also add more jitter to the start time
+            try:
+                start_date = datetime.strptime(payload["start_date_local"], "%Y-%m-%dT%H:%M:%SZ")
+                new_jitter = random.randint(0, 59)
+                new_start_date = start_date.replace(second=new_jitter)
+                payload["start_date_local"] = new_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
+                
+            logger.info(f"Retry {retry_count}: Creating activity with modified name: {payload['name']}")
+            
+            # Try again with the modified payload
+            response = requests.post(url, headers=headers, json=payload)
         
         # Check if the request was successful
         if response.status_code == 201 or response.status_code == 200:
