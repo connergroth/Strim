@@ -982,8 +982,9 @@ async function undoLastTrim() {
     if (result.success) {
       // Show success message with link to the restored activity
       const messageDiv = document.createElement("div");
+      const originalName = result.original_name || "activity";
       messageDiv.innerHTML = `
-        Original activity restored successfully! 
+        ${originalName} restored successfully! 
         <a href="https://www.strava.com/activities/${result.original_activity_id}" 
           target="_blank" style="margin-left: 10px; color: #FC5200; font-weight: bold; text-decoration: underline;">
           View on Strava
@@ -994,6 +995,7 @@ async function undoLastTrim() {
       messageEl.innerHTML = "";
       messageEl.appendChild(messageDiv);
       messageEl.className = "success";
+      messageEl.style.display = "block";
 
       // Hide the undo button now that the restore is complete
       document.getElementById("undoTrimButton").style.display = "none";

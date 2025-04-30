@@ -568,16 +568,13 @@ def restore_activity():
         app.logger.info(f"Getting details for new activity {new_activity_id}")
         new_activity = api_utils.get_activity_details(new_activity_id, token)
         
-        if not new_activity:
-            # This isn't critical, so we can continue with restoration
-            app.logger.warning(f"Could not retrieve new activity {new_activity_id} details")
-            
         # Determine the original name
-        original_name = original_activity.get("name", "Activity")
+        original_name = None
         description = original_activity.get("description", "")
+        current_name = original_activity.get("name", "Activity")
         
         # Extract original name from description if it's in our archived format
-        if original_name.startswith("ARCHIVED_COPY_") and "archived copy of '" in description:
+        if current_name.startswith("ARCHIVED_COPY_") and "archived copy of '" in description:
             try:
                 # Extract the original name from the description
                 name_start = description.find("archived copy of '") + 17
@@ -585,10 +582,22 @@ def restore_activity():
                 
                 if name_start > 17 and name_end > name_start:
                     extracted_name = description[name_start:name_end]
-                    app.logger.info(f"Extracted original name from description: {extracted_name}")
+                    app.logger.info(f"Extracted original name from description: '{extracted_name}'")
                     original_name = extracted_name
             except Exception as e:
                 app.logger.warning(f"Error extracting original name from description: {str(e)}")
+        
+        # If we couldn't extract the name and new activity exists, use its name as a fallback
+        if not original_name and new_activity:
+            original_name = new_activity.get("name", "Activity")
+            app.logger.info(f"Using name from trimmed activity as fallback: '{original_name}'")
+            
+        # If we still don't have a name, use a generic one
+        if not original_name:
+            original_name = "Restored Activity"
+            app.logger.warning(f"Could not determine original name, using generic: '{original_name}'")
+            
+        app.logger.info(f"Will restore activity with name: '{original_name}'")
         
         # Restore the original activity
         app.logger.info(f"Restoring archived activity {original_activity_id}")
@@ -604,7 +613,7 @@ def restore_activity():
         # Create a new unique name to avoid duplicate detection
         restored_name = f"Restored {timestamp}-{random_suffix}"
         
-        app.logger.info(f"Changing activity name to temporary name: {restored_name}")
+        app.logger.info(f"Changing activity name to temporary name: '{restored_name}'")
         
         # Prepare the payload to update the original activity
         restore_payload = {
@@ -636,22 +645,41 @@ def restore_activity():
         
         # Now that restoration succeeded with a temporary name, let's update it to the original name
         # This second update should work because we've already changed it enough to avoid duplicate detection
-        time.sleep(1)  # Short delay to ensure the first update completes
+        time.sleep(1.5)  # Slightly longer delay to ensure the first update completes
         
         final_name_payload = {
             "name": original_name
         }
         
-        app.logger.info(f"Updating activity name back to original: {original_name}")
+        app.logger.info(f"Updating activity name back to original: '{original_name}'")
         final_update_response = requests.put(restore_url, headers=headers, json=final_name_payload)
         
         if final_update_response.status_code != 200:
             app.logger.warning(f"Failed to restore original name: {final_update_response.status_code} {final_update_response.text}")
-            # This is not critical, so we'll continue and return success anyway
+            app.logger.warning(f"Response content: {final_update_response.text}")
+            
+            # Try one more time with a slightly different name if we hit a duplicate
+            if final_update_response.status_code == 409:
+                modified_name = f"{original_name} (Restored)"
+                app.logger.info(f"Trying again with modified name to avoid duplicate: '{modified_name}'")
+                
+                retry_payload = {
+                    "name": modified_name
+                }
+                
+                retry_response = requests.put(restore_url, headers=headers, json=retry_payload)
+                if retry_response.status_code == 200:
+                    app.logger.info(f"Successfully updated with modified name: '{modified_name}'")
+                    original_name = modified_name
+                else:
+                    app.logger.warning(f"Failed retry: {retry_response.status_code} {retry_response.text}")
+        else:
+            app.logger.info(f"Successfully restored original name: '{original_name}'")
         
         return jsonify({
             "success": True,
             "original_activity_id": original_activity_id,
+            "original_name": original_name,
             "new_activity_deleted": delete_new and delete_result,
             "token": token
         })
