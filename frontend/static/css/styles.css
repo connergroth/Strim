@@ -263,7 +263,9 @@ tr:hover {
 }
 
 tr.selected {
-  background-color: rgba(var(--accent-color), 0.1);
+  background-color: rgba(252, 76, 2, 0.1);
+  border-left: 3px solid var(--accent-color);
+  font-weight: 500;
 }
 
 td a {
@@ -291,7 +293,8 @@ input[type="radio"] {
 
 input[type="radio"]:checked {
   border-color: var(--accent-color);
-  background-color: var(--input-bg);
+  background-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(252, 76, 2, 0.2);
 }
 
 input[type="radio"]:checked::before {
@@ -299,10 +302,10 @@ input[type="radio"]:checked::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background-color: var(--accent-color);
+  background-color: white;
   transform: translate(-50%, -50%);
 }
 

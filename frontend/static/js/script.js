@@ -437,6 +437,11 @@ function selectActivity(activityId, activityDistance) {
   radioButtons.forEach((radio) => {
     if (radio.value === activityId) {
       radio.checked = true;
+      // Add animation effect to the parent row
+      const parentRow = radio.closest("tr");
+      if (parentRow) {
+        parentRow.style.transition = "background-color 0.3s ease";
+      }
     } else {
       radio.checked = false;
     }
