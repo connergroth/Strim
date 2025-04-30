@@ -816,6 +816,12 @@ def format_streams_for_visualization(stream_data, activity_metadata):
     
     return response
 
+@app.route("/download-fit", methods=["GET"])
+def download_fit_legacy():
+    """Legacy endpoint for backward compatibility - redirects to trim-activity."""
+    app.logger.info("Legacy /download-fit endpoint accessed - redirecting to /trim-activity")
+    return trim_activity()
+
 # ---------------- END ROUTES ----------------
 
 if __name__ == "__main__":

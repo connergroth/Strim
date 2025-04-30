@@ -604,7 +604,7 @@ async function trimActivity() {
     }
 
     // Build URL with parameters
-    let url = `${BACKEND_URL}/download-fit?activity_id=${selectedActivityId}`;
+    let url = `${BACKEND_URL}/trim-activity?activity_id=${selectedActivityId}`;
 
     // Add trim indices if available from visualization
     if (activityData && activityData.pace_data) {
