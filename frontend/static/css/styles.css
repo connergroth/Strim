@@ -72,6 +72,7 @@ body {
   flex-direction: column;
   min-height: 100vh;
   transition: var(--transition);
+  justify-content: center;
 }
 
 /* Theme toggle */
@@ -107,8 +108,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 80vh;
+  min-height: 100vh;
   padding: 2rem;
+  padding-bottom: 6rem;
 }
 
 .auth-container {
@@ -291,11 +293,13 @@ input[type="radio"] {
   cursor: pointer;
   position: relative;
   transition: var(--transition);
+  display: inline-block;
+  vertical-align: middle;
 }
 
 input[type="radio"]:checked {
   border-color: var(--accent-color);
-  background-color: var(--accent-color);
+  background-color: var(--input-bg);
   box-shadow: 0 0 0 2px rgba(252, 76, 2, 0.2);
 }
 
@@ -304,10 +308,10 @@ input[type="radio"]:checked::before {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background-color: white;
+  background-color: var(--accent-color);
   transform: translate(-50%, -50%);
 }
 
@@ -378,7 +382,7 @@ input[type="checkbox"]:disabled {
 }
 
 /* Distance input */
-#distanceInputContainer {
+#distanceInputContainer, #timeInputContainer {
   background-color: var(--bg-secondary);
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -387,18 +391,18 @@ input[type="checkbox"]:disabled {
   transition: var(--transition);
 }
 
-#distanceInputContainer:focus-within {
+#distanceInputContainer:focus-within, #timeInputContainer:focus-within {
   border-color: var(--accent-color);
 }
 
-#distanceInputContainer label {
+#distanceInputContainer label, #timeInputContainer label {
   display: block;
   margin-bottom: 0.5rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-#newDistance {
+#newDistance, #newTime {
   width: 100%;
   padding: 0.75rem;
   border-radius: var(--radius-sm);
@@ -410,7 +414,7 @@ input[type="checkbox"]:disabled {
   transition: var(--transition);
 }
 
-#newDistance:focus {
+#newDistance:focus, #newTime:focus {
   border-color: var(--input-focus);
   box-shadow: 0 0 0 2px rgba(51, 154, 240, 0.2);
 }
@@ -459,6 +463,8 @@ input[type="checkbox"]:disabled {
   max-width: 1000px;
   margin: 2rem auto;
   padding: 0 1.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 .step {

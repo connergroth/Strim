@@ -412,6 +412,12 @@ function selectActivity(activityId, activityDistance) {
     distanceInput.value = activityDistance;
   }
 
+  // Reset time field
+  const timeInput = document.getElementById("newTime");
+  if (timeInput) {
+    timeInput.value = "";
+  }
+
   console.log(
     `Selected activity: ${activityId}, distance: ${activityDistance} miles`
   );
@@ -502,6 +508,84 @@ function toggleDistanceInput() {
   }
 }
 
+/**
+ * Toggle time input visibility with animation
+ */
+function toggleTimeInput() {
+  const editTimeChecked = document.getElementById("editTimeCheckbox").checked;
+  const container = document.getElementById("timeInputContainer");
+
+  if (editTimeChecked) {
+    container.style.display = "block";
+    container.style.maxHeight = "0";
+    container.style.overflow = "hidden";
+
+    // Trigger reflow
+    void container.offsetWidth;
+
+    // Animate open
+    container.style.transition =
+      "max-height 0.3s ease-in-out, opacity 0.3s ease-in-out";
+    container.style.maxHeight = "100px";
+    container.style.opacity = "0";
+    setTimeout(() => {
+      container.style.opacity = "1";
+    }, 50);
+  } else {
+    // Animate close
+    container.style.opacity = "0";
+    container.style.maxHeight = "0";
+
+    // Hide after animation
+    setTimeout(() => {
+      container.style.display = "none";
+    }, 300);
+  }
+}
+
+/**
+ * Parse time string into seconds
+ * Accepts formats: "MM:SS" or "HH:MM:SS"
+ */
+function parseTimeString(timeStr) {
+  if (!timeStr || timeStr.trim() === "") return null;
+
+  // Remove any whitespace
+  timeStr = timeStr.trim();
+
+  // Try to match against expected formats
+  const minuteSecPattern = /^(\d+):(\d{1,2})$/;
+  const hourMinuteSecPattern = /^(\d+):(\d{1,2}):(\d{1,2})$/;
+
+  let hours = 0,
+    minutes = 0,
+    seconds = 0;
+
+  if (hourMinuteSecPattern.test(timeStr)) {
+    // Format: HH:MM:SS
+    const parts = timeStr.split(":");
+    hours = parseInt(parts[0], 10);
+    minutes = parseInt(parts[1], 10);
+    seconds = parseInt(parts[2], 10);
+  } else if (minuteSecPattern.test(timeStr)) {
+    // Format: MM:SS
+    const parts = timeStr.split(":");
+    minutes = parseInt(parts[0], 10);
+    seconds = parseInt(parts[1], 10);
+  } else {
+    // Invalid format
+    return null;
+  }
+
+  // Validate the values
+  if (minutes >= 60 || seconds >= 60) {
+    return null;
+  }
+
+  // Calculate total seconds
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 function checkForPhotos(activityId) {
   // Get token from localStorage
   const token = getStoredToken();
@@ -582,6 +666,22 @@ async function trimActivity() {
     }
   }
 
+  // Check if editing time
+  const editTime = document.getElementById("editTimeCheckbox").checked;
+  let newTime = null;
+
+  if (editTime) {
+    const timeInput = document.getElementById("newTime").value;
+    newTime = parseTimeString(timeInput);
+    if (newTime === null || newTime <= 0) {
+      showMessage(
+        "Please enter a valid time in format MM:SS or HH:MM:SS.",
+        "error"
+      );
+      return;
+    }
+  }
+
   try {
     // Disable button during processing
     const trimButton = document.getElementById("trimActivityButton");
@@ -632,6 +732,12 @@ async function trimActivity() {
       )}`;
     } else {
       url += `&edit_distance=false`;
+    }
+
+    if (editTime) {
+      url += `&edit_time=true&new_time=${encodeURIComponent(newTime)}`;
+    } else {
+      url += `&edit_time=false`;
     }
 
     // Add token as URL parameter
@@ -786,6 +892,12 @@ document.addEventListener("DOMContentLoaded", function () {
     editDistanceCheckbox.addEventListener("change", toggleDistanceInput);
   }
 
+  // Edit time checkbox
+  const editTimeCheckbox = document.getElementById("editTimeCheckbox");
+  if (editTimeCheckbox) {
+    editTimeCheckbox.addEventListener("change", toggleTimeInput);
+  }
+
   // Trim activity button
   const trimButton = document.getElementById("trimActivityButton");
   if (trimButton) {
@@ -805,6 +917,7 @@ document.addEventListener("DOMContentLoaded", function () {
 // Expose functions to the global scope
 window.selectActivity = selectActivity;
 window.toggleDistanceInput = toggleDistanceInput;
+window.toggleTimeInput = toggleTimeInput;
 window.trimActivity = trimActivity;
 window.logout = logout;
 window.loginWithStrava = loginWithStrava;
@@ -1348,7 +1461,20 @@ function updateTrimmedMetrics() {
       editedMetrics.distance = trimmedDistance;
     }
 
-    editedMetrics.time = trimmedTime;
+    // If editing time is checked, use that value instead
+    const editTimeCheckbox = document.getElementById("editTimeCheckbox");
+    if (editTimeCheckbox && editTimeCheckbox.checked) {
+      const newTimeInput = document.getElementById("newTime");
+      const timeSeconds = parseTimeString(newTimeInput.value);
+
+      if (timeSeconds !== null && timeSeconds > 0) {
+        editedMetrics.time = timeSeconds;
+      } else {
+        editedMetrics.time = trimmedTime;
+      }
+    } else {
+      editedMetrics.time = trimmedTime;
+    }
 
     // Calculate pace (seconds per meter)
     if (editedMetrics.distance > 0 && editedMetrics.time > 0) {
@@ -1491,11 +1617,22 @@ async function loadActivityVisualization(activityId) {
       newDistanceInput.addEventListener("input", updateTrimmedMetrics);
     }
 
+    // Add time input event listener to update metrics
+    const newTimeInput = document.getElementById("newTime");
+    if (newTimeInput) {
+      newTimeInput.addEventListener("input", updateTrimmedMetrics);
+    }
+
     const editDistanceCheckbox = document.getElementById(
       "editDistanceCheckbox"
     );
     if (editDistanceCheckbox) {
       editDistanceCheckbox.addEventListener("change", updateTrimmedMetrics);
+    }
+
+    const editTimeCheckbox = document.getElementById("editTimeCheckbox");
+    if (editTimeCheckbox) {
+      editTimeCheckbox.addEventListener("change", updateTrimmedMetrics);
     }
   } catch (error) {
     console.error("Error loading activity visualization:", error);
