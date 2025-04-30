@@ -234,24 +234,25 @@ def mark_original_activity(activity_id, token, original_name, new_activity_id):
         timestamp = int(time.time())
         random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         
-        # Create a descriptive name for the original activity with unique identifiers
-        new_name = f"[ARCHIVED] {original_name} ({timestamp}-{random_suffix})"
+        # Create a unique name for the original activity to avoid duplicate detection
+        # Don't include the original name to avoid potential duplicates with the trimmed copy
+        new_name = f"ARCHIVED_COPY_{timestamp}_{random_suffix}"
         
         # Create a helpful description for the original activity
         description = (
-            f"This activity has been trimmed using Strim. A new version is available.\n\n"
-            f"View the trimmed version here: https://www.strava.com/activities/{new_activity_id}\n\n"
-            f"You can safely delete this original activity."
+            f"This is an archived copy of '{original_name}' that has been trimmed using Strim.\n\n"
+            f"A new version is available here: https://www.strava.com/activities/{new_activity_id}\n\n"
+            f"You can safely delete this archived copy."
         )
         
-        # Prepare the payload with a significantly altered name and type
+        # Prepare the payload with a significantly altered name
         payload = {
             "name": new_name,
             "description": description,
             "private": True  # Mark as private to reduce clutter in feed
         }
         
-        logger.info(f"Marking original activity {activity_id} as archived")
+        logger.info(f"Marking original activity {activity_id} as archived with name {new_name}")
         
         # Send the update request
         response = requests.put(url, headers=headers, json=payload)

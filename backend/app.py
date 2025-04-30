@@ -432,7 +432,9 @@ def trim_activity():
                 app.logger.warning(f"Error modifying original activity: {str(e)}")
         
         # 4. Create a new activity with the processed metrics
-        app.logger.info(f"Creating new activity from processed metrics")
+        # Make sure to use the original activity name for the new trimmed activity
+        trimmed_metrics["name"] = activity_metadata.get("name", "Activity")
+        app.logger.info(f"Creating new activity from processed metrics with name: {trimmed_metrics['name']}")
         new_activity_id = api_utils.create_activity(token, trimmed_metrics)
         
         if not new_activity_id:
@@ -556,19 +558,40 @@ def restore_activity():
             return jsonify({"error": "Original activity ID is required"}), 400
         
         # Get original activity details
-        app.logger.info(f"Getting details for original activity {original_activity_id}")
+        app.logger.info(f"Getting details for archived activity {original_activity_id}")
         original_activity = api_utils.get_activity_details(original_activity_id, token)
         
         if not original_activity:
             return jsonify({"error": "Failed to retrieve original activity details"}), 404
+            
+        # Get the new activity details to find the original name
+        app.logger.info(f"Getting details for new activity {new_activity_id}")
+        new_activity = api_utils.get_activity_details(new_activity_id, token)
+        
+        if not new_activity:
+            # This isn't critical, so we can continue with restoration
+            app.logger.warning(f"Could not retrieve new activity {new_activity_id} details")
+            
+        # Determine the original name
+        original_name = original_activity.get("name", "Activity")
+        description = original_activity.get("description", "")
+        
+        # Extract original name from description if it's in our archived format
+        if original_name.startswith("ARCHIVED_COPY_") and "archived copy of '" in description:
+            try:
+                # Extract the original name from the description
+                name_start = description.find("archived copy of '") + 17
+                name_end = description.find("'", name_start)
+                
+                if name_start > 17 and name_end > name_start:
+                    extracted_name = description[name_start:name_end]
+                    app.logger.info(f"Extracted original name from description: {extracted_name}")
+                    original_name = extracted_name
+            except Exception as e:
+                app.logger.warning(f"Error extracting original name from description: {str(e)}")
         
         # Restore the original activity
-        app.logger.info(f"Restoring original activity {original_activity_id}")
-        
-        # Extract original name (remove [ARCHIVED] prefix if it exists)
-        original_name = original_activity.get("name", "Activity")
-        if original_name.startswith("[ARCHIVED] "):
-            original_name = original_name[11:]  # Remove the prefix
+        app.logger.info(f"Restoring archived activity {original_activity_id}")
         
         # Generate a unique timestamp and random suffix to avoid duplicate detection
         import time
@@ -579,14 +602,14 @@ def restore_activity():
         random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         
         # Create a new unique name to avoid duplicate detection
-        restored_name = f"{original_name} (Restored {timestamp}-{random_suffix})"
+        restored_name = f"Restored {timestamp}-{random_suffix}"
         
-        app.logger.info(f"Changing activity name to: {restored_name}")
+        app.logger.info(f"Changing activity name to temporary name: {restored_name}")
         
         # Prepare the payload to update the original activity
         restore_payload = {
             "name": restored_name,
-            "description": original_activity.get("description", ""),
+            "description": "This activity has been restored.",
             "private": False,  # Make the activity public again
             "type": original_activity.get("type", "Run"),  # Ensure the type is correct
         }
@@ -611,7 +634,7 @@ def restore_activity():
             if not delete_result:
                 app.logger.warning(f"Failed to delete trimmed activity {new_activity_id}")
         
-        # Now that restoration succeeded with a temporary name, let's update it back to the original name
+        # Now that restoration succeeded with a temporary name, let's update it to the original name
         # This second update should work because we've already changed it enough to avoid duplicate detection
         time.sleep(1)  # Short delay to ensure the first update completes
         

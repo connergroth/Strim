@@ -935,7 +935,7 @@ async function undoLastTrim() {
     undoButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>Processing...</span>`;
 
     showMessage(
-      "Restoring original activity... This may take a moment.",
+      "Restoring archived activity... This may take a moment.",
       "info"
     );
 
