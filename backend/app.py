@@ -323,9 +323,9 @@ def get_activities():
         "token": token  # Include token in response
     })
 
-@app.route("/download-fit", methods=["GET"])
-def download_fit():
-    """Download, trim, and reupload a FIT file from Strava."""
+@app.route("/trim-activity", methods=["GET"])
+def trim_activity():
+    """Process and trim a Strava activity using stream data."""
     try:
         # Get token from request
         token = get_token_from_request()
@@ -370,8 +370,95 @@ def download_fit():
         if not activity_id:
             return jsonify({"error": "Activity ID is required"}), 400
             
-        # Process activities directly or call other functionality here
-        # ...
+        # 1. Get activity details and streams from Strava
+        app.logger.info(f"Getting activity details for {activity_id}")
+        activity_metadata = api_utils.get_activity_details(activity_id, token)
+        
+        if not activity_metadata:
+            return jsonify({"error": "Failed to retrieve activity details from Strava"}), 500
+            
+        # Get streams data for trimming
+        app.logger.info(f"Getting activity streams for {activity_id}")
+        streams_url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
+        headers = {"Authorization": f"Bearer {token}"}
+        params = {
+            "keys": "time,distance,velocity_smooth,heartrate,altitude,cadence",
+            "key_by_type": "true"
+        }
+        
+        streams_response = requests.get(streams_url, headers=headers, params=params)
+        if streams_response.status_code != 200:
+            app.logger.error(f"Failed to get streams: {streams_response.status_code} {streams_response.text}")
+            return jsonify({"error": "Failed to retrieve activity streams from Strava"}), 500
+            
+        stream_data = streams_response.json()
+        
+        # 2. Process the activity with manual trim points and/or corrected distance
+        app.logger.info(f"Processing activity {activity_id} with trimmer")
+        options = {}
+        if manual_trim_points:
+            options['manual_trim_points'] = manual_trim_points
+            
+        try:
+            # Use the trimmer module to process the activity
+            trimmed_metrics = trimmer.estimate_trimmed_activity_metrics(
+                activity_id, 
+                stream_data, 
+                activity_metadata, 
+                corrected_distance=new_distance,
+                options=options
+            )
+            
+            if not trimmed_metrics:
+                return jsonify({"error": "Failed to process activity metrics"}), 500
+                
+        except Exception as e:
+            app.logger.error(f"Error in trimmer: {str(e)}")
+            tb = traceback.format_exc()
+            app.logger.error(tb)
+            return jsonify({
+                "error": f"Error processing activity data: {str(e)}",
+                "traceback": tb
+            }), 500
+        
+        # 3. Mark the original activity (if needed)
+        if manual_trim_points or edit_distance:
+            try:
+                app.logger.info(f"Modifying original activity {activity_id}")
+                modify_success = api_utils.modify_activity_aggressively(activity_id, token)
+                if not modify_success:
+                    app.logger.warning(f"Failed to modify original activity {activity_id}")
+            except Exception as e:
+                app.logger.warning(f"Error modifying original activity: {str(e)}")
+        
+        # 4. Create a new activity with the processed metrics
+        app.logger.info(f"Creating new activity from processed metrics")
+        new_activity_id = api_utils.create_activity(token, trimmed_metrics)
+        
+        if not new_activity_id:
+            return jsonify({"error": "Failed to create new activity"}), 500
+            
+        app.logger.info(f"Successfully created new activity: {new_activity_id}")
+        
+        # 5. Mark the original activity as archived (if needed)
+        if manual_trim_points or edit_distance:
+            try:
+                app.logger.info(f"Marking original activity {activity_id} as archived")
+                api_utils.mark_original_activity(
+                    activity_id, 
+                    token, 
+                    activity_metadata.get("name", "Activity"), 
+                    new_activity_id
+                )
+            except Exception as e:
+                app.logger.warning(f"Error marking original activity: {str(e)}")
+        
+        # Return success with the new activity ID
+        return jsonify({
+            "success": True,
+            "new_activity_id": new_activity_id,
+            "token": token
+        })
         
     except Exception as e:
         app.logger.error(f"Error processing activity: {str(e)}")

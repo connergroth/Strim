@@ -13,6 +13,83 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def streams_to_dataframe(stream_data):
+    """
+    Convert Strava API stream data to a pandas DataFrame.
+    
+    Args:
+        stream_data (dict): Stream data from Strava API
+        
+    Returns:
+        pandas.DataFrame: DataFrame with all stream data combined
+    """
+    try:
+        logger.info("Converting stream data to DataFrame")
+        
+        # Handle different input formats
+        if isinstance(stream_data, str):
+            try:
+                stream_data = json.loads(stream_data)
+            except Exception as e:
+                logger.error(f"Failed to parse stream data JSON: {str(e)}")
+                return None
+                
+        # Handle empty or invalid data
+        if not stream_data:
+            logger.error("Empty or None stream data provided")
+            return None
+            
+        # Check if stream_data is a dict
+        if isinstance(stream_data, dict):
+            # Modern Strava API returns key_by_type=true format
+            all_data = {}
+            
+            # Extract each stream type
+            for stream_type, stream_obj in stream_data.items():
+                if isinstance(stream_obj, dict) and 'data' in stream_obj:
+                    all_data[stream_type] = stream_obj['data']
+                    logger.info(f"Found stream: {stream_type} with {len(stream_obj['data'])} points")
+                    
+            # If we have any streams, convert to DataFrame
+            if all_data:
+                # Find the length of each stream
+                stream_lengths = {k: len(v) for k, v in all_data.items()}
+                logger.info(f"Stream lengths: {stream_lengths}")
+                
+                # Create DataFrame
+                df = pd.DataFrame(all_data)
+                logger.info(f"Created DataFrame with shape {df.shape}")
+                return df
+            else:
+                logger.error("No valid streams found in data")
+                return None
+                
+        # Handle list format (older API)
+        elif isinstance(stream_data, list):
+            all_data = {}
+            
+            for stream in stream_data:
+                if isinstance(stream, dict) and 'type' in stream and 'data' in stream:
+                    stream_type = stream['type']
+                    all_data[stream_type] = stream['data']
+                    logger.info(f"Found stream: {stream_type} with {len(stream['data'])} points")
+            
+            if all_data:
+                df = pd.DataFrame(all_data)
+                logger.info(f"Created DataFrame with shape {df.shape}")
+                return df
+            else:
+                logger.error("No valid streams found in list data")
+                return None
+        else:
+            logger.error(f"Unsupported stream data type: {type(stream_data)}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error converting streams to DataFrame: {str(e)}")
+        logger.error(traceback.format_exc())
+        return None
+
 def process_streams_data(stream_data, activity_metadata, corrected_distance=None, manual_trim_points=None):
     """
     Process Strava streams data: detect stops, trim data, and return trimmed metrics.
