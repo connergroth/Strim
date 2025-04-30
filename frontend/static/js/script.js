@@ -641,8 +641,14 @@ async function trimActivity() {
       `📡 Making trim request: ${url.replace(token, "***MASKED***")}`
     );
 
-    // Make request without Authorization header
-    const response = await fetch(url);
+    // Make request with proper CORS handling
+    const response = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
     // Re-enable button
     trimButton.disabled = false;
@@ -653,15 +659,15 @@ async function trimActivity() {
         const errorData = await response.json();
 
         // Check if this is a Python traceback error
-        if (errorData.error && errorData.error.includes("traceback")) {
-          console.error("Backend error (traceback):", errorData.error);
+        if (errorData.traceback) {
+          console.error("Backend error (traceback):", errorData.traceback);
           throw new Error(
-            "Server error: The backend encountered an issue with traceback. Please try again later."
+            "Server error: The backend encountered an issue. Please try again later."
           );
+        } else if (errorData.error) {
+          throw new Error(errorData.error);
         } else {
-          throw new Error(
-            errorData.error || `Failed to process activity (${response.status})`
-          );
+          throw new Error(`Failed to process activity (${response.status})`);
         }
       } catch (jsonError) {
         // If we can't parse the error as JSON, show a generic error

@@ -89,7 +89,8 @@ cors.init_app(
             "Cache-Control"  
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "expose_headers": ["Content-Type", "X-CSRFToken"]
+        "expose_headers": ["Content-Type", "X-CSRFToken"],
+        "supports_credentials": True
     }}
 )
 
@@ -369,13 +370,17 @@ def download_fit():
         if not activity_id:
             return jsonify({"error": "Activity ID is required"}), 400
             
-        # The rest of the function continues as before...
+        # Process activities directly or call other functionality here
+        # ...
         
     except Exception as e:
         app.logger.error(f"Error processing activity: {str(e)}")
-        import traceback
-        app.logger.error(traceback.format_exc())
-        return jsonify({"error": f"Error processing activity: {str(e)}"}), 500
+        tb = traceback.format_exc()
+        app.logger.error(tb)
+        return jsonify({
+            "error": f"Error processing activity: {str(e)}",
+            "traceback": tb
+        }), 500
 
 @app.route("/update-distance", methods=["POST"])
 def update_distance():
@@ -478,6 +483,12 @@ def log_response_headers(response):
         response.headers.add('Access-Control-Allow-Headers', 
                             'Content-Type,Authorization,X-Requested-With,Accept,Origin,Cache-Control')
         response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        
+    # Handle preflight OPTIONS requests
+    if request.method == 'OPTIONS':
+        response.status_code = 200
+        return response
         
     return response
 
