@@ -644,10 +644,26 @@ async function trimActivity() {
     trimButton.innerHTML = originalButtonText;
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.error || `Failed to process activity (${response.status})`
-      );
+      try {
+        const errorData = await response.json();
+
+        // Check if this is a Python traceback error
+        if (errorData.error && errorData.error.includes("traceback")) {
+          console.error("Backend error (traceback):", errorData.error);
+          throw new Error(
+            "Server error: The backend encountered an issue with traceback. Please try again later."
+          );
+        } else {
+          throw new Error(
+            errorData.error || `Failed to process activity (${response.status})`
+          );
+        }
+      } catch (jsonError) {
+        // If we can't parse the error as JSON, show a generic error
+        throw new Error(
+          `Server error (${response.status}): Please try again later.`
+        );
+      }
     }
 
     const result = await response.json();

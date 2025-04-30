@@ -1,9 +1,16 @@
 import pandas as pd
 import logging
 import numpy as np
+import traceback
 from datetime import datetime, timedelta
+import json
+import re
+import math
+from scipy.signal import find_peaks
 
-# Configure logging
+# Setup logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def process_streams_data(stream_data, activity_metadata, corrected_distance=None, manual_trim_points=None):
@@ -107,7 +114,6 @@ def process_streams_data(stream_data, activity_metadata, corrected_distance=None
         return metrics
     except Exception as e:
         logger.error(f"Error processing streams data: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         raise
 
@@ -370,7 +376,6 @@ def detect_stop_from_streams(df, flat_tolerance=0.5, flat_window=10, min_duratio
         
     except Exception as e:
         logger.error(f"Error detecting stop: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         return None
 
@@ -510,7 +515,6 @@ def build_trimmed_metrics(df, activity_metadata, corrected_distance=None):
         return metrics
     except Exception as e:
         logger.error(f"Error building metrics: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         raise
 
@@ -620,7 +624,6 @@ def cleanup_activity(activity_id, token, original_name, original_description=Non
             
     except Exception as e:
         logger.error(f"Error cleaning up activity: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         return False
 
@@ -870,7 +873,6 @@ def detect_run_stop(df, activity_metadata):
         
     except Exception as e:
         logger.error(f"Error in run stop detection: {str(e)}")
-        import traceback
         logger.error(traceback.format_exc())
         return None
 
