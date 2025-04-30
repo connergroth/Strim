@@ -4,9 +4,9 @@ flask_session
 flask_talisman
 fitparse
 pandas
+scipy
 requests
 redis
 gunicorn
 werkzeug
 python-dotenv
-
