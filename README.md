@@ -17,6 +17,12 @@ Strim is a tool that allows you to:
 - Correct any inconsistencies
 - Ensure accurate running data
 
+## 🔧 How It Works
+1. Connect your Strava account
+2. Select the activity you want to trim
+3. Adjust the distance and trim time
+4. Strim automatically updates your Strava activity
+
 ## 🚀 Key Features
 - Automatically fetches recent Strava activities
 - Selectively edit and trim activities
@@ -44,12 +50,6 @@ Strim is a tool that allows you to:
   
 ## 📡 API Integrations
 - **Strava API** – Fetches user activities, edits relevant metadata, and uploads the new trimmed activity.
-
-## 🔧 How It Works
-1. Connect your Strava account
-2. Select the activity you want to trim
-3. Adjust the distance and trim time
-4. Strim automatically updates your Strava activity
 
 ---
 
